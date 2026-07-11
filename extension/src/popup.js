@@ -220,6 +220,10 @@ function renderCommentView(view, query) {
     author.target = "_blank";
     author.rel = "noreferrer";
   }
+  if (view.isVideoAuthor) {
+    author.classList.add("comment-author-badge");
+    author.title = "Video author";
+  }
   header.append(author);
 
   const publishedLink = document.createElement("a");
@@ -361,8 +365,9 @@ async function restorePageState(videoId) {
 
 function renderPage(response, append) {
   const views = [];
+  const videoChannelId = state.metadata?.channelId;
   for (const thread of Array.isArray(response.items) ? response.items : []) {
-    const view = commentView(thread, state.videoId);
+    const view = commentView(thread, state.videoId, videoChannelId);
     if (view) {
       views.push(view);
     }

@@ -683,6 +683,36 @@ a:focus-visible,
   text-decoration: underline;
 }
 
+.comment-author-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  background: #ffffff;
+  border-radius: var(--radius-pill);
+  color: #0f0f0f;
+  text-decoration: none;
+}
+
+.comment-author-badge:hover {
+  color: #0f0f0f;
+  text-decoration: none;
+}
+
+.comment-author-badge::after {
+  content: "✓";
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #0f0f0f;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .comment-time {
   color: var(--muted);
   font-size: 12px;

@@ -27,6 +27,7 @@ test("maps a top-level comment to a safe, complete display model", () => {
           id: "Ugy-comment-id",
           snippet: {
             authorChannelUrl: "http://www.youtube.com/channel/UC_author",
+            authorChannelId: { value: "UC_author" },
             authorDisplayName: "A commenter",
             authorProfileImageUrl: "https://yt3.ggpht.com/avatar-photo",
             likeCount: 12,
@@ -37,6 +38,7 @@ test("maps a top-level comment to a safe, complete display model", () => {
       },
     },
     videoId,
+    "UC_video_owner",
   );
 
   expect(view).toEqual({
@@ -44,11 +46,48 @@ test("maps a top-level comment to a safe, complete display model", () => {
     authorName: "A commenter",
     authorProfileImageUrl: "https://yt3.ggpht.com/avatar-photo",
     commentUrl: `https://www.youtube.com/watch?v=${videoId}&lc=Ugy-comment-id`,
+    isVideoAuthor: false,
     likeCount: 12,
     publishedAt: "2026-07-11T10:00:00Z",
     replyCount: 4,
     text: "<script>not markup</script>\nFull public comment",
   });
+});
+
+test("flags the comment as authored by the video owner when channel IDs match", () => {
+  const view = commentView(
+    {
+      snippet: {
+        topLevelComment: {
+          id: "Ugy-comment-id",
+          snippet: {
+            authorChannelId: { value: "UC_video_owner" },
+            authorDisplayName: "The owner",
+            likeCount: 1,
+            publishedAt: "2026-07-11T10:00:00Z",
+            textDisplay: "Hey",
+          },
+        },
+      },
+    },
+    videoId,
+    "UC_video_owner",
+  );
+
+  expect(view.isVideoAuthor).toBe(true);
+});
+
+test("does not flag authorship when video or author channel ID is missing", () => {
+  const thread = {
+    snippet: {
+      topLevelComment: {
+        id: "Ugy-comment-id",
+        snippet: { authorDisplayName: "Someone", likeCount: 0, publishedAt: "2026-07-11T10:00:00Z", textDisplay: "Hi" },
+      },
+    },
+  };
+  expect(commentView(thread, videoId, "UC_video_owner").isVideoAuthor).toBe(false);
+  expect(commentView(thread, videoId, null).isVideoAuthor).toBe(false);
 });
 
 test("rejects unsafe author image hosts and formats relative timestamps", () => {
@@ -80,14 +119,16 @@ test("rejects unsafe author image hosts and formats relative timestamps", () => 
 test("extracts required video metadata and maps expected API errors", () => {
   expect(
     videoMetadata({
-      items: [{ snippet: { channelTitle: "Example channel", title: "Example video" }, statistics: { commentCount: "1284" } }],
+      items: [{ snippet: { channelId: "UC_video_owner", channelTitle: "Example channel", title: "Example video" }, statistics: { commentCount: "1284" } }],
     }),
   ).toEqual({
+    channelId: "UC_video_owner",
     channelTitle: "Example channel",
     commentCount: 1284,
     title: "Example video",
   });
   expect(videoMetadata({ items: [{ snippet: { channelTitle: "Example channel", title: "Example video" } }] })).toEqual({
+    channelId: null,
     channelTitle: "Example channel",
     commentCount: null,
     title: "Example video",

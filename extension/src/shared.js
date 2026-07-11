@@ -117,7 +117,7 @@ export function relativeTimeFrom(isoDate, now = Date.now()) {
   throw new Error("relativeTimeFrom exhausted unit divisions");
 }
 
-export function commentView(thread, videoId) {
+export function commentView(thread, videoId, videoChannelId = null) {
   const comment = thread?.snippet?.topLevelComment;
   const snippet = comment?.snippet;
 
@@ -130,12 +130,15 @@ export function commentView(thread, videoId) {
   commentUrl.searchParams.set("lc", comment.id);
 
   const replyCount = Number.isFinite(thread?.snippet?.totalReplyCount) ? thread.snippet.totalReplyCount : 0;
+  const authorChannelId = typeof snippet.authorChannelId?.value === "string" ? snippet.authorChannelId.value : null;
+  const isVideoAuthor = videoChannelId != null && videoChannelId === authorChannelId;
 
   return {
     authorChannelUrl: httpsYouTubeChannelUrl(snippet.authorChannelUrl),
     authorName: typeof snippet.authorDisplayName === "string" ? snippet.authorDisplayName : "YouTube user",
     authorProfileImageUrl: authorProfileImageUrl(snippet.authorProfileImageUrl),
     commentUrl: commentUrl.toString(),
+    isVideoAuthor,
     likeCount: Number.isFinite(snippet.likeCount) ? snippet.likeCount : 0,
     publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt : null,
     replyCount: replyCount > 0 ? replyCount : 0,
@@ -155,7 +158,7 @@ export function videoMetadata(response) {
   const parsed = typeof rawCount === "string" ? Number(rawCount) : rawCount;
   const commentCount = Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 
-  return { channelTitle: snippet.channelTitle, commentCount, title: snippet.title };
+  return { channelId: typeof snippet.channelId === "string" ? snippet.channelId : null, channelTitle: snippet.channelTitle, commentCount, title: snippet.title };
 }
 
 export function apiErrorMessage(error) {
