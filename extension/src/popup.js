@@ -1,14 +1,30 @@
-import { ApiError, fetchVideoMetadata, searchCommentThreads } from "./api.js";
-import { PAGE_ORDER_KEY, isPageState, nextPageOrder, pageStorageKey } from "./page-state.js";
-import { apiErrorMessage, commentView, isDeferredChannelPage, relativeTimeFrom, timestampMatches, videoIdFromUrl, videoMetadata } from "./shared.js";
+import { ApiError, fetchChannelMetadata, fetchVideoMetadata, searchCommentThreads } from "./api.js";
+import { PAGE_ORDER_KEY, isPageState, nextPageOrder, pageStorageKey, pageTargetKey } from "./page-state.js";
+import {
+  apiErrorMessage,
+  channelMetadata,
+  commentView,
+  isUnsupportedChannelPage,
+  pageTargetFromUrl,
+  relativeTimeFrom,
+  timestampMatches,
+  videoMetadata,
+  videoTitlesFromResponse,
+} from "./shared.js";
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
-const PRIVACY_POLICY_VERSION = "2026-07-11-session";
+const PRIVACY_POLICY_VERSION = "2026-07-12-channel";
+const VIDEO_TITLE_BATCH_SIZE = 50;
 
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
   app: document.querySelector("#app"),
+  channelAvatar: document.querySelector("#channel-avatar"),
+  channelSubscriberCount: document.querySelector("#channel-subscriber-count"),
+  channelSubscriberCountValue: document.querySelector("#channel-subscriber-count-value"),
   channelTitle: document.querySelector("#channel-title"),
+  channelVideoCount: document.querySelector("#channel-video-count"),
+  channelVideoCountValue: document.querySelector("#channel-video-count-value"),
   consentCheckbox: document.querySelector("#consent-checkbox"),
   clearKeyword: document.querySelector("#clear-keyword"),
   keyword: document.querySelector("#keyword"),
@@ -35,7 +51,8 @@ const state = {
   nextPageToken: null,
   persistQueue: Promise.resolve(),
   requestSequence: 0,
-  videoId: null,
+  target: null,
+  videoTitles: {},
 };
 
 const ICON_PATHS = {
@@ -43,6 +60,18 @@ const ICON_PATHS = {
     "M19.017 31.992c-9.088 0-9.158-0.377-10.284-1.224-0.597-0.449-1.723-0.76-5.838-1.028-0.298-0.020-0.583-0.134-0.773-0.365-0.087-0.107-2.143-3.105-2.143-7.907 0-4.732 1.472-6.89 1.534-6.99 0.182-0.293 0.503-0.47 0.847-0.47 3.378 0 8.062-4.313 11.21-11.841 0.544-1.302 0.657-2.159 2.657-2.159 1.137 0 2.413 0.815 3.042 1.86 1.291 2.135 0.636 6.721 0.029 9.171 2.063-0.017 5.796-0.045 7.572-0.045 2.471 0 4.107 1.473 4.156 3.627 0.017 0.711-0.077 1.619-0.282 2.089 0.544 0.543 1.245 1.36 1.276 2.414 0.038 1.36-0.852 2.395-1.421 2.989 0.131 0.395 0.391 0.92 0.366 1.547-0.063 1.542-1.253 2.535-1.994 3.054 0.061 0.422 0.11 1.218-0.026 1.834-0.535 2.457-4.137 3.443-9.928 3.443zM3.426 27.712c3.584 0.297 5.5 0.698 6.51 1.459 0.782 0.589 0.662 0.822 9.081 0.822 2.568 0 7.59-0.107 7.976-1.87 0.153-0.705-0.59-1.398-0.593-1.403-0.203-0.501 0.023-1.089 0.518-1.305 0.008-0.004 2.005-0.719 2.050-1.835 0.030-0.713-0.46-1.142-0.471-1.16-0.291-0.452-0.185-1.072 0.257-1.38 0.005-0.004 1.299-0.788 1.267-1.857-0.024-0.849-1.143-1.447-1.177-1.466-0.25-0.143-0.432-0.39-0.489-0.674-0.056-0.282 0.007-0.579 0.183-0.808 0 0 0.509-0.808 0.49-1.566-0.037-1.623-1.782-1.674-2.156-1.674-2.523 0-9.001 0.025-9.001 0.025-0.349 0.002-0.652-0.164-0.84-0.443s-0.201-0.627-0.092-0.944c0.977-2.813 1.523-7.228 0.616-8.736-0.267-0.445-0.328-0.889-1.328-0.889-0.139 0-0.468 0.11-0.812 0.929-3.341 7.995-8.332 12.62-12.421 13.037-0.353 0.804-1.016 2.47-1.016 5.493 0 3.085 0.977 5.473 1.447 6.245z",
   external: "M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h6V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-6h-2v6H5V5z",
 };
+
+function isChannelScoped() {
+  return state.target?.kind === "channel" || state.target?.kind === "handle";
+}
+
+function searchChannelId() {
+  if (state.target?.kind === "channel") {
+    return state.target.channelId;
+  }
+
+  return typeof state.metadata?.channelId === "string" ? state.metadata.channelId : null;
+}
 
 function setStatus(message, stateName = "") {
   elements.status.textContent = message;
@@ -61,33 +90,102 @@ function setLoadMoreVisibility() {
   elements.loadMore.hidden = !state.nextPageToken;
 }
 
+function compactCount(value) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, notation: "compact" }).format(value);
+}
+
+function clearChannelCardExtras() {
+  elements.channelAvatar.hidden = true;
+  elements.channelAvatar.removeAttribute("src");
+  elements.channelSubscriberCount.hidden = true;
+  elements.channelSubscriberCountValue.textContent = "";
+  elements.channelSubscriberCount.removeAttribute("aria-label");
+  elements.channelVideoCount.hidden = true;
+  elements.channelVideoCountValue.textContent = "";
+  elements.channelVideoCount.removeAttribute("aria-label");
+}
+
 function showVideoSkeleton() {
   elements.videoTitle.textContent = "";
   elements.channelTitle.textContent = "";
   elements.videoCommentCountValue.textContent = "";
   elements.videoCommentCount.hidden = true;
+  clearChannelCardExtras();
   elements.videoMetadata.classList.add("is-skeleton");
   elements.pageContext.hidden = true;
   elements.videoMetadata.hidden = false;
 }
 
-function showVideoMetadata() {
+function showPageMetadata() {
   elements.videoMetadata.classList.remove("is-skeleton");
-  elements.videoTitle.textContent = state.metadata.title;
-  elements.channelTitle.textContent = state.metadata.channelTitle;
 
-  const { commentCount } = state.metadata;
-  const hasCount = typeof commentCount === "number";
-  elements.videoCommentCount.hidden = !hasCount;
-  if (hasCount) {
-    const formatted = new Intl.NumberFormat().format(commentCount);
-    elements.videoCommentCountValue.textContent = formatted;
-    elements.videoCommentCount.setAttribute(
-      "aria-label",
-      commentCount === 1 ? "1 comment" : `${formatted} comments`,
-    );
-  } else {
+  if (isChannelScoped()) {
+    elements.videoTitle.textContent = state.metadata.title;
+    elements.channelTitle.textContent =
+      state.target?.kind === "handle"
+        ? `@${state.target.handle}`
+        : state.metadata.handle
+          ? `@${state.metadata.handle}`
+          : "Channel";
+    elements.videoCommentCount.hidden = true;
     elements.videoCommentCountValue.textContent = "";
+
+    if (state.metadata.thumbnailUrl) {
+      elements.channelAvatar.src = state.metadata.thumbnailUrl;
+      elements.channelAvatar.referrerPolicy = "no-referrer";
+      elements.channelAvatar.hidden = false;
+    } else {
+      elements.channelAvatar.hidden = true;
+      elements.channelAvatar.removeAttribute("src");
+    }
+
+    if (typeof state.metadata.subscriberCount === "number") {
+      const formatted = compactCount(state.metadata.subscriberCount);
+      elements.channelSubscriberCountValue.textContent =
+        state.metadata.subscriberCount === 1 ? "1 subscriber" : `${formatted} subscribers`;
+      elements.channelSubscriberCount.setAttribute(
+        "aria-label",
+        state.metadata.subscriberCount === 1 ? "1 subscriber" : `${formatted} subscribers`,
+      );
+      elements.channelSubscriberCount.hidden = false;
+    } else {
+      elements.channelSubscriberCount.hidden = true;
+      elements.channelSubscriberCountValue.textContent = "";
+      elements.channelSubscriberCount.removeAttribute("aria-label");
+    }
+
+    if (typeof state.metadata.videoCount === "number") {
+      const formatted = compactCount(state.metadata.videoCount);
+      elements.channelVideoCountValue.textContent =
+        state.metadata.videoCount === 1 ? "1 video" : `${formatted} videos`;
+      elements.channelVideoCount.setAttribute(
+        "aria-label",
+        state.metadata.videoCount === 1 ? "1 video" : `${formatted} videos`,
+      );
+      elements.channelVideoCount.hidden = false;
+    } else {
+      elements.channelVideoCount.hidden = true;
+      elements.channelVideoCountValue.textContent = "";
+      elements.channelVideoCount.removeAttribute("aria-label");
+    }
+  } else {
+    clearChannelCardExtras();
+    elements.videoTitle.textContent = state.metadata.title;
+    elements.channelTitle.textContent = state.metadata.channelTitle;
+
+    const { commentCount } = state.metadata;
+    const hasCount = typeof commentCount === "number";
+    elements.videoCommentCount.hidden = !hasCount;
+    if (hasCount) {
+      const formatted = new Intl.NumberFormat().format(commentCount);
+      elements.videoCommentCountValue.textContent = formatted;
+      elements.videoCommentCount.setAttribute(
+        "aria-label",
+        commentCount === 1 ? "1 comment" : `${formatted} comments`,
+      );
+    } else {
+      elements.videoCommentCountValue.textContent = "";
+    }
   }
 
   elements.pageContext.hidden = true;
@@ -155,7 +253,7 @@ function highlightQueryNodes(text, query) {
 }
 
 function commentTextNodes(text, query, videoId) {
-  const stamps = timestampMatches(text);
+  const stamps = typeof videoId === "string" ? timestampMatches(text) : [];
   if (stamps.length === 0) {
     return highlightQueryNodes(text, query);
   }
@@ -252,7 +350,7 @@ function renderCommentView(view, query, options = {}) {
   }
   if (view.isVideoAuthor) {
     author.classList.add("comment-author-badge");
-    author.title = "Video author";
+    author.title = isChannelScoped() ? "Channel author" : "Video author";
   }
   header.append(author);
 
@@ -277,9 +375,19 @@ function renderCommentView(view, query, options = {}) {
   header.append(publishedLink);
   body.append(header);
 
+  if (!isReply && view.videoTitle && view.videoId) {
+    const source = document.createElement("a");
+    source.className = "comment-source-video";
+    source.href = `https://www.youtube.com/watch?v=${view.videoId}`;
+    source.target = "_blank";
+    source.rel = "noreferrer";
+    source.textContent = view.videoTitle;
+    body.append(source);
+  }
+
   const text = document.createElement("p");
   text.className = "comment-text is-collapsed";
-  text.append(...commentTextNodes(view.text, query, state.videoId));
+  text.append(...commentTextNodes(view.text, query, view.videoId));
   body.append(text);
 
   const actions = document.createElement("div");
@@ -344,12 +452,12 @@ function renderCommentViews(views, append, query) {
 }
 
 function persistPageState() {
-  if (!state.videoId) {
+  const targetKey = pageTargetKey(state.target);
+  if (!targetKey) {
     return state.persistQueue;
   }
 
-  const videoId = state.videoId;
-  const key = pageStorageKey(videoId);
+  const key = pageStorageKey(targetKey);
   const pageState = {
     comments: state.comments,
     keyword: elements.keyword.value,
@@ -358,11 +466,12 @@ function persistPageState() {
     status: elements.status.textContent,
     statusState: elements.status.dataset.state ?? "",
     updatedAt: Date.now(),
+    videoTitles: state.videoTitles,
   };
 
   const run = async () => {
     const stored = await chrome.storage.session.get(PAGE_ORDER_KEY);
-    const { next, removed } = nextPageOrder(stored[PAGE_ORDER_KEY], videoId);
+    const { next, removed } = nextPageOrder(stored[PAGE_ORDER_KEY], targetKey);
     await chrome.storage.session.set({ [key]: pageState, [PAGE_ORDER_KEY]: next });
     if (removed.length > 0) {
       await chrome.storage.session.remove(removed.map(pageStorageKey));
@@ -373,17 +482,35 @@ function persistPageState() {
   return state.persistQueue;
 }
 
+function applySourceTitles(views) {
+  for (const view of views) {
+    const title = state.videoTitles[view.videoId];
+    if (title) {
+      view.videoTitle = title;
+    }
+    if (Array.isArray(view.replies)) {
+      for (const reply of view.replies) {
+        if (title) {
+          reply.videoTitle = title;
+        }
+      }
+    }
+  }
+}
+
 function applyPageState(page) {
   state.comments = page.comments;
   state.metadata = page.metadata;
   state.nextPageToken = page.nextPageToken;
+  state.videoTitles = page.videoTitles && typeof page.videoTitles === "object" ? page.videoTitles : {};
   elements.keyword.value = page.keyword;
 
   if (state.metadata) {
-    showVideoMetadata();
+    showPageMetadata();
   }
 
   if (state.comments.length > 0) {
+    applySourceTitles(state.comments);
     elements.resultsSection.hidden = false;
     renderCommentViews(state.comments, false, elements.keyword.value.trim());
   } else {
@@ -395,8 +522,13 @@ function applyPageState(page) {
   setLoadMoreVisibility();
 }
 
-async function restorePageState(videoId) {
-  const key = pageStorageKey(videoId);
+async function restorePageState(target) {
+  const targetKey = pageTargetKey(target);
+  if (!targetKey) {
+    return false;
+  }
+
+  const key = pageStorageKey(targetKey);
   const stored = await chrome.storage.session.get(key);
   const page = stored[key];
   if (!isPageState(page)) {
@@ -407,14 +539,73 @@ async function restorePageState(videoId) {
   return true;
 }
 
-function renderPage(response, append) {
+async function showApplication() {
+  elements.privacyGate.hidden = true;
+  elements.app.hidden = false;
+
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const pageUrl = typeof tab?.url === "string" ? tab.url : null;
+  const rawTarget = pageUrl ? pageTargetFromUrl(pageUrl) : null;
+
+  if (!rawTarget) {
+    setSearchControls(false);
+    showContextMessage(
+      pageUrl && isUnsupportedChannelPage(pageUrl)
+        ? "Legacy /c/ channel URLs are not supported. Open a @handle, /channel/…, video, or Shorts page."
+        : "Open a YouTube video, Shorts, @handle, or channel page, then reopen this popup.",
+    );
+    return;
+  }
+
+  state.target = rawTarget;
+  setSearchControls(true);
+  const restored = await restorePageState(state.target);
+  if (!restored || !state.metadata) {
+    void prefetchMetadata();
+  }
+  elements.keyword.focus();
+  elements.keyword.select();
+}
+
+async function hydrateSourceVideos(views, sequence, signal) {
+  if (!isChannelScoped()) {
+    return;
+  }
+
+  const missing = [];
+  for (const view of views) {
+    if (view.videoId && !state.videoTitles[view.videoId] && !missing.includes(view.videoId)) {
+      missing.push(view.videoId);
+    }
+  }
+
+  for (let index = 0; index < missing.length; index += VIDEO_TITLE_BATCH_SIZE) {
+    const batch = missing.slice(index, index + VIDEO_TITLE_BATCH_SIZE);
+    const response = await fetchVideoMetadata(batch, signal);
+    if (sequence !== state.requestSequence) {
+      return;
+    }
+    Object.assign(state.videoTitles, videoTitlesFromResponse(response));
+  }
+
+  applySourceTitles(views);
+}
+
+async function renderPage(response, append, sequence, signal) {
   const views = [];
-  const videoChannelId = state.metadata?.channelId;
+  const ownerChannelId = state.metadata?.channelId ?? null;
+  const fallbackVideoId = state.target?.kind === "video" ? state.target.videoId : null;
+  const channelId = isChannelScoped() ? searchChannelId() : null;
   for (const thread of Array.isArray(response.items) ? response.items : []) {
-    const view = commentView(thread, state.videoId, videoChannelId);
+    const view = commentView(thread, fallbackVideoId, ownerChannelId, channelId);
     if (view) {
       views.push(view);
     }
+  }
+
+  await hydrateSourceVideos(views, sequence, signal);
+  if (sequence !== state.requestSequence) {
+    return;
   }
 
   if (!append) {
@@ -453,23 +644,43 @@ async function loadMetadata(sequence, signal) {
     return true;
   }
 
-  const response = await fetchVideoMetadata(state.videoId, signal);
+  if (state.target.kind === "video") {
+    const response = await fetchVideoMetadata(state.target.videoId, signal);
+    if (sequence !== state.requestSequence) {
+      return false;
+    }
+
+    state.metadata = videoMetadata(response);
+    if (!state.metadata) {
+      setStatus("Video details are unavailable through the YouTube Data API.", "error");
+      return false;
+    }
+
+    showPageMetadata();
+    return true;
+  }
+
+  const response = await fetchChannelMetadata(
+    state.target.kind === "handle" ? { forHandle: state.target.handle } : { channelId: state.target.channelId },
+    signal,
+  );
   if (sequence !== state.requestSequence) {
     return false;
   }
 
-  state.metadata = videoMetadata(response);
-  if (!state.metadata) {
-    setStatus("Video details are unavailable through the YouTube Data API.", "error");
+  const metadata = channelMetadata(response);
+  if (!metadata) {
+    setStatus("Channel details are unavailable through the YouTube Data API.", "error");
     return false;
   }
 
-  showVideoMetadata();
+  state.metadata = metadata;
+  showPageMetadata();
   return true;
 }
 
 async function prefetchMetadata() {
-  if (!state.videoId || state.metadata) {
+  if (!state.target || state.metadata) {
     return;
   }
 
@@ -482,7 +693,11 @@ async function prefetchMetadata() {
   try {
     if (!(await loadMetadata(sequence, controller.signal))) {
       if (sequence === state.requestSequence && !state.metadata) {
-        showContextMessage("Video details unavailable. You can still try searching.");
+        showContextMessage(
+          isChannelScoped()
+            ? "Channel details unavailable. You can still try searching."
+            : "Video details unavailable. You can still try searching.",
+        );
       }
       return;
     }
@@ -500,7 +715,11 @@ async function prefetchMetadata() {
     }
 
     if (error instanceof ApiError || error instanceof TypeError) {
-      showContextMessage("Video details unavailable. You can still try searching.");
+      showContextMessage(
+        state.target?.kind === "video"
+          ? "Video details unavailable. You can still try searching."
+          : "Channel details unavailable. You can still try searching.",
+      );
       return;
     }
 
@@ -531,6 +750,7 @@ async function search(pageToken = null) {
   if (!pageToken) {
     state.comments = [];
     state.nextPageToken = null;
+    state.videoTitles = {};
     setLoadMoreVisibility();
     elements.resultsSection.hidden = true;
     elements.resultList.replaceChildren();
@@ -541,12 +761,18 @@ async function search(pageToken = null) {
       return;
     }
 
-    const response = await searchCommentThreads(state.videoId, searchTerms, pageToken, controller.signal);
+    const channelId = searchChannelId();
+    const response = await searchCommentThreads(
+      state.target.kind === "video" ? { videoId: state.target.videoId } : { channelId },
+      searchTerms,
+      pageToken,
+      controller.signal,
+    );
     if (sequence !== state.requestSequence) {
       return;
     }
 
-    renderPage(response, Boolean(pageToken));
+    await renderPage(response, Boolean(pageToken), sequence, controller.signal);
   } catch (error) {
     if (sequence !== state.requestSequence) {
       return;
@@ -569,33 +795,6 @@ async function search(pageToken = null) {
       setSearchControls(true);
     }
   }
-}
-
-async function showApplication() {
-  elements.privacyGate.hidden = true;
-  elements.app.hidden = false;
-
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  const pageUrl = tab?.url;
-  state.videoId = typeof pageUrl === "string" ? videoIdFromUrl(pageUrl) : null;
-
-  if (!state.videoId) {
-    setSearchControls(false);
-    showContextMessage(
-      typeof pageUrl === "string" && isDeferredChannelPage(pageUrl)
-        ? "Channel search is planned next. Open a video page to search comments now."
-        : "Open a YouTube video or Shorts page, then reopen this popup.",
-    );
-    return;
-  }
-
-  setSearchControls(true);
-  const restored = await restorePageState(state.videoId);
-  if (!restored || !state.metadata) {
-    void prefetchMetadata();
-  }
-  elements.keyword.focus();
-  elements.keyword.select();
 }
 
 function documentOffsetTop(el) {

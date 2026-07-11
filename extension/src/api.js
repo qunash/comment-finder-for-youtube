@@ -9,12 +9,27 @@ export class ApiError extends Error {
   }
 }
 
-export async function fetchVideoMetadata(videoId, signal) {
-  return requestJson("/yt/videos", { id: videoId }, signal);
+export async function fetchVideoMetadata(videoIds, signal) {
+  const id = Array.isArray(videoIds) ? videoIds.join(",") : videoIds;
+  return requestJson("/yt/videos", { id }, signal);
 }
 
-export async function searchCommentThreads(videoId, searchTerms, pageToken, signal) {
-  const parameters = { searchTerms, videoId };
+export async function fetchChannelMetadata({ channelId, forHandle }, signal) {
+  if (channelId) {
+    return requestJson("/yt/channels", { id: channelId }, signal);
+  }
+
+  return requestJson("/yt/channels", { forHandle }, signal);
+}
+
+export async function searchCommentThreads({ videoId, channelId }, searchTerms, pageToken, signal) {
+  const parameters = { searchTerms };
+
+  if (videoId) {
+    parameters.videoId = videoId;
+  } else {
+    parameters.channelId = channelId;
+  }
 
   if (pageToken) {
     parameters.pageToken = pageToken;

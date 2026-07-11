@@ -40,27 +40,27 @@
   </head>
   <body>
     <h1>Comment Finder Privacy Policy</h1>
-    <p>Effective date: July 11, 2026</p>
+    <p>Effective date: July 12, 2026</p>
     <p class="notice">
       Before publishing, the extension owner must replace the contact placeholder below and host this same policy at a public URL for the Chrome Web Store listing.
     </p>
 
     <h2>What Comment Finder does</h2>
     <p>
-      Comment Finder is a browser extension that searches public comments for the video currently open in a YouTube tab. It uses YouTube API Services and does not scrape YouTube pages or access a YouTube account.
+      Comment Finder is a browser extension that searches public comments for the video or channel currently open in a YouTube tab. It uses YouTube API Services and does not scrape YouTube pages or access a YouTube account.
     </p>
 
     <h2>Information processed</h2>
     <p>
-      When you submit a search, the extension sends the current video ID and your keyword to the extension operator's proxy. The proxy sends those values to the YouTube Data API to retrieve matching public comments and video metadata. The proxy receives an IP address from Cloudflare for short-window rate limiting, but does not persist the IP address, keyword, video ID, comment text, or author identity in its application telemetry.
+      When you submit a search, the extension sends the current video ID or channel ID (resolved from a channel URL or @handle when needed) and your keyword to the extension operator's proxy. The proxy sends those values to the YouTube Data API to retrieve matching public comments and video or channel metadata. For channel searches, the proxy may also request titles for the videos that contain matching comments. The proxy receives an IP address from Cloudflare for short-window rate limiting, but does not persist the IP address, keyword, video ID, channel ID, handle, comment text, or author identity in its application telemetry.
     </p>
     <p>
-      Search results stay on your device for the current browser session so the popup can restore them when reopened on the same video. Comment Finder does not maintain a permanent offline comment cache, profile users, use advertising technology, or sell or share this information for advertising. Aggregate proxy telemetry records only the endpoint called and its response status so the operator can monitor API quota use.
+      Search results stay on your device for the current browser session so the popup can restore them when reopened on the same video or channel. Comment Finder does not maintain a permanent offline comment cache, profile users, use advertising technology, or sell or share this information for advertising. Aggregate proxy telemetry records only the endpoint called and its response status so the operator can monitor API quota use.
     </p>
 
     <h2>Device storage</h2>
     <p>
-      The extension stores the version of this Privacy Policy you accepted in Chrome local storage. It also keeps recent per-video popup state (keyword, video metadata, matching comments, and pagination position) in Chrome session storage for the current browser session. Session data is cleared when the browser closes. Removing the extension clears both values.
+      The extension stores the version of this Privacy Policy you accepted in Chrome local storage. It also keeps recent per-video, per-channel, and per-handle popup state (keyword, metadata, matching comments, source-video titles for channel results, and pagination position) in Chrome session storage for the current browser session. Session data is cleared when the browser closes. Removing the extension clears both values.
     </p>
 
     <h2>Service providers and sharing</h2>

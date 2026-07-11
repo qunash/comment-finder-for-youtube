@@ -304,13 +304,30 @@ a {
 }
 
 .video-metadata {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+}
+
+.channel-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.video-metadata-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
 }
 
 .video-title {
@@ -342,19 +359,20 @@ a {
   white-space: nowrap;
 }
 
-.video-comment-count {
+.meta-stat {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   font-weight: 500;
 }
 
-.video-comment-count::before {
+.meta-stat::before {
   content: "·";
   margin-inline: 6px;
+  font-weight: 400;
 }
 
-.video-comment-count svg {
+.meta-stat svg {
   display: block;
   width: 13px;
   height: 13px;
@@ -375,6 +393,10 @@ a {
   );
   background-size: 200% 100%;
   animation: cf-shimmer 1.4s ease-in-out infinite;
+}
+
+.video-metadata.is-skeleton .channel-avatar {
+  background: var(--surface-2);
 }
 
 .video-metadata.is-skeleton .video-title {
@@ -668,6 +690,24 @@ a:focus-visible,
   gap: 4px 6px;
   align-items: baseline;
   min-width: 0;
+}
+
+.comment-source-video {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-source-video:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .comment-author {

@@ -1,11 +1,16 @@
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/;
+const HANDLE_PATTERN = /^[A-Za-z0-9._-]{3,30}$/;
+
+function isYouTubeHost(hostname) {
+  return ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(hostname);
+}
 
 export function videoIdFromUrl(urlString) {
   try {
     const url = new URL(urlString);
-    const isYouTubeHost = ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(url.hostname);
 
-    if (url.protocol !== "https:" || !isYouTubeHost) {
+    if (url.protocol !== "https:" || !isYouTubeHost(url.hostname)) {
       return null;
     }
 
@@ -26,12 +31,44 @@ export function videoIdFromUrl(urlString) {
   }
 }
 
-export function isDeferredChannelPage(urlString) {
+export function pageTargetFromUrl(urlString) {
+  const videoId = videoIdFromUrl(urlString);
+  if (videoId) {
+    return { kind: "video", videoId };
+  }
+
   try {
     const url = new URL(urlString);
-    const isYouTubeHost = ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(url.hostname);
+    if (url.protocol !== "https:" || !isYouTubeHost(url.hostname)) {
+      return null;
+    }
 
-    return url.protocol === "https:" && isYouTubeHost && (/^\/@[^/]+/.test(url.pathname) || /^\/(channel|c)\//.test(url.pathname));
+    const handleMatch = url.pathname.match(/^\/@([^/]+)/);
+    if (handleMatch) {
+      const handle = handleMatch[1];
+      return HANDLE_PATTERN.test(handle) ? { kind: "handle", handle } : null;
+    }
+
+    const channelMatch = url.pathname.match(/^\/channel\/([^/]+)/);
+    if (channelMatch) {
+      const channelId = channelMatch[1];
+      return CHANNEL_ID_PATTERN.test(channelId) ? { kind: "channel", channelId } : null;
+    }
+
+    return null;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export function isUnsupportedChannelPage(urlString) {
+  try {
+    const url = new URL(urlString);
+    return url.protocol === "https:" && isYouTubeHost(url.hostname) && /^\/c\//.test(url.pathname);
   } catch (error) {
     if (error instanceof TypeError) {
       return false;
@@ -54,9 +91,7 @@ function httpsYouTubeChannelUrl(urlString) {
 
   try {
     const authorUrl = new URL(urlString);
-    const isYouTubeHost = ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(authorUrl.hostname);
-
-    if (["http:", "https:"].includes(authorUrl.protocol) && isYouTubeHost) {
+    if (["http:", "https:"].includes(authorUrl.protocol) && isYouTubeHost(authorUrl.hostname)) {
       authorUrl.protocol = "https:";
       return authorUrl.toString();
     }
@@ -86,6 +121,11 @@ function authorProfileImageUrl(urlString) {
   }
 
   return null;
+}
+
+function nonNegativeCount(value) {
+  const parsed = typeof value === "string" ? Number(value) : value;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 /** m:ss or h:mm:ss; seconds always two digits; not adjacent to other digits. */
@@ -148,35 +188,50 @@ export function relativeTimeFrom(isoDate, now = Date.now()) {
   throw new Error("relativeTimeFrom exhausted unit divisions");
 }
 
-export function commentResourceView(comment, videoId, videoChannelId = null) {
+export function commentResourceView(comment, videoId, ownerChannelId = null, channelId = null) {
   const snippet = comment?.snippet;
 
   if (!comment || !snippet || typeof comment.id !== "string") {
     return null;
   }
 
-  const commentUrl = new URL("https://www.youtube.com/watch");
-  commentUrl.searchParams.set("v", videoId);
-  commentUrl.searchParams.set("lc", comment.id);
+  if (typeof videoId !== "string" && typeof channelId !== "string") {
+    return null;
+  }
+
+  let commentUrl;
+  if (typeof videoId === "string") {
+    const url = new URL("https://www.youtube.com/watch");
+    url.searchParams.set("v", videoId);
+    url.searchParams.set("lc", comment.id);
+    commentUrl = url.toString();
+  } else {
+    commentUrl = `https://www.youtube.com/channel/${channelId}`;
+  }
 
   const authorChannelId = typeof snippet.authorChannelId?.value === "string" ? snippet.authorChannelId.value : null;
-  const isVideoAuthor = videoChannelId != null && videoChannelId === authorChannelId;
+  const isVideoAuthor = ownerChannelId != null && ownerChannelId === authorChannelId;
 
   return {
     authorChannelUrl: httpsYouTubeChannelUrl(snippet.authorChannelUrl),
     authorName: typeof snippet.authorDisplayName === "string" ? snippet.authorDisplayName : "YouTube user",
     authorProfileImageUrl: authorProfileImageUrl(snippet.authorProfileImageUrl),
-    commentUrl: commentUrl.toString(),
+    commentUrl,
     id: comment.id,
     isVideoAuthor,
     likeCount: Number.isFinite(snippet.likeCount) ? snippet.likeCount : 0,
     publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt : null,
     text: typeof snippet.textOriginal === "string" ? snippet.textOriginal : "",
+    videoId: typeof videoId === "string" ? videoId : null,
   };
 }
 
-export function commentView(thread, videoId, videoChannelId = null) {
-  const view = commentResourceView(thread?.snippet?.topLevelComment, videoId, videoChannelId);
+export function commentView(thread, fallbackVideoId, ownerChannelId = null, channelId = null) {
+  const videoId =
+    typeof thread?.snippet?.videoId === "string" && VIDEO_ID_PATTERN.test(thread.snippet.videoId)
+      ? thread.snippet.videoId
+      : fallbackVideoId;
+  const view = commentResourceView(thread?.snippet?.topLevelComment, videoId, ownerChannelId, channelId);
   if (!view) {
     return null;
   }
@@ -188,7 +243,7 @@ export function commentView(thread, videoId, videoChannelId = null) {
 
   const replies = [];
   for (const item of bundled) {
-    const mapped = commentResourceView(item, videoId, videoChannelId);
+    const mapped = commentResourceView(item, videoId, ownerChannelId, channelId);
     if (mapped) {
       replies.push(mapped);
     }
@@ -211,10 +266,47 @@ export function videoMetadata(response) {
   }
 
   const rawCount = item?.statistics?.commentCount;
-  const parsed = typeof rawCount === "string" ? Number(rawCount) : rawCount;
-  const commentCount = Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  const commentCount = nonNegativeCount(rawCount);
 
   return { channelId: typeof snippet.channelId === "string" ? snippet.channelId : null, channelTitle: snippet.channelTitle, commentCount, title: snippet.title };
+}
+
+export function channelMetadata(response) {
+  const item = response?.items?.[0];
+  const snippet = item?.snippet;
+
+  if (!item || !snippet || typeof item.id !== "string" || typeof snippet.title !== "string") {
+    return null;
+  }
+
+  const customUrl = typeof snippet.customUrl === "string" ? snippet.customUrl : null;
+  const handle = customUrl?.startsWith("@") ? customUrl.slice(1) : customUrl;
+  const thumbnails = snippet.thumbnails;
+  const thumbnailUrl = authorProfileImageUrl(
+    thumbnails?.medium?.url ?? thumbnails?.default?.url ?? thumbnails?.high?.url ?? null,
+  );
+  const statistics = item.statistics;
+  const hiddenSubscriberCount = statistics?.hiddenSubscriberCount === true;
+
+  return {
+    channelId: item.id,
+    handle: handle && HANDLE_PATTERN.test(handle) ? handle : null,
+    hiddenSubscriberCount,
+    subscriberCount: hiddenSubscriberCount ? null : nonNegativeCount(statistics?.subscriberCount),
+    thumbnailUrl,
+    title: snippet.title,
+    videoCount: nonNegativeCount(statistics?.videoCount),
+  };
+}
+
+export function videoTitlesFromResponse(response) {
+  const titles = {};
+  for (const item of Array.isArray(response?.items) ? response.items : []) {
+    if (typeof item?.id === "string" && typeof item?.snippet?.title === "string") {
+      titles[item.id] = item.snippet.title;
+    }
+  }
+  return titles;
 }
 
 export function apiErrorMessage(error) {
@@ -232,8 +324,8 @@ export function apiErrorMessage(error) {
     return "The search service is busy or has reached its quota. Please try again later.";
   }
 
-  if (error?.status === 404 || reason === "videoNotFound") {
-    return "This video is not available through the YouTube Data API.";
+  if (error?.status === 404 || reason === "videoNotFound" || reason === "channelNotFound") {
+    return "This page is not available through the YouTube Data API.";
   }
 
   if (error?.status === 400) {

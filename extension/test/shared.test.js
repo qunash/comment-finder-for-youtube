@@ -1,16 +1,20 @@
 import { expect, test } from "bun:test";
 import {
   apiErrorMessage,
+  channelMetadata,
   commentResourceView,
   commentView,
-  isDeferredChannelPage,
+  isUnsupportedChannelPage,
+  pageTargetFromUrl,
   relativeTimeFrom,
   timestampMatches,
   videoIdFromUrl,
   videoMetadata,
+  videoTitlesFromResponse,
 } from "../src/shared.js";
 
 const videoId = "dQw4w9WgXcQ";
+const channelId = "UC_x5XG1OV2P6uZZ5FSM9Ttw";
 
 test("extracts a video ID from a supported watch URL", () => {
   expect(videoIdFromUrl(`https://www.youtube.com/watch?v=${videoId}&t=42`)).toBe(videoId);
@@ -23,6 +27,14 @@ test("extracts a video ID from a Shorts URL", () => {
   expect(videoIdFromUrl(`https://www.youtube.com/shorts/${videoId}?feature=share`)).toBe(videoId);
 });
 
+test("parses video, channel, and handle page targets", () => {
+  expect(pageTargetFromUrl(`https://www.youtube.com/watch?v=${videoId}`)).toEqual({ kind: "video", videoId });
+  expect(pageTargetFromUrl(`https://www.youtube.com/shorts/${videoId}`)).toEqual({ kind: "video", videoId });
+  expect(pageTargetFromUrl(`https://www.youtube.com/channel/${channelId}/videos`)).toEqual({ kind: "channel", channelId });
+  expect(pageTargetFromUrl("https://www.youtube.com/@openai/videos")).toEqual({ kind: "handle", handle: "openai" });
+  expect(pageTargetFromUrl("https://m.youtube.com/@Some_Handle")).toEqual({ kind: "handle", handle: "Some_Handle" });
+});
+
 test("rejects unsupported and malformed page URLs", () => {
   expect(videoIdFromUrl("https://www.youtube.com/@openai")).toBeNull();
   expect(videoIdFromUrl("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull();
@@ -30,10 +42,12 @@ test("rejects unsupported and malformed page URLs", () => {
   expect(videoIdFromUrl("https://www.youtube.com/shorts/not-a-video-id")).toBeNull();
   expect(videoIdFromUrl("https://www.youtube.com/shorts/")).toBeNull();
   expect(videoIdFromUrl("not a URL")).toBeNull();
-  expect(isDeferredChannelPage("https://www.youtube.com/@openai/videos")).toBe(true);
-  expect(isDeferredChannelPage("https://www.youtube.com/channel/UC123")).toBe(true);
-  expect(isDeferredChannelPage(`https://www.youtube.com/watch?v=${videoId}`)).toBe(false);
-  expect(isDeferredChannelPage(`https://www.youtube.com/shorts/${videoId}`)).toBe(false);
+  expect(pageTargetFromUrl("https://www.youtube.com/c/legacy")).toBeNull();
+  expect(pageTargetFromUrl("https://www.youtube.com/channel/not-a-channel-id")).toBeNull();
+  expect(pageTargetFromUrl("https://www.youtube.com/@ab")).toBeNull();
+  expect(isUnsupportedChannelPage("https://www.youtube.com/c/legacy")).toBe(true);
+  expect(isUnsupportedChannelPage(`https://www.youtube.com/channel/${channelId}`)).toBe(false);
+  expect(isUnsupportedChannelPage(`https://www.youtube.com/watch?v=${videoId}`)).toBe(false);
 });
 
 test("finds m:ss and h:mm:ss stamps in comment text", () => {
@@ -80,7 +94,58 @@ test("maps a top-level comment to a safe, complete display model", () => {
     likeCount: 12,
     publishedAt: "2026-07-11T10:00:00Z",
     text: "<script>not markup</script>\nFull public comment",
+    videoId,
   });
+});
+
+test("uses the thread video ID for channel search results", () => {
+  const sourceVideoId = "abcdefghijk";
+  const view = commentView(
+    {
+      snippet: {
+        videoId: sourceVideoId,
+        topLevelComment: {
+          id: "Ugy-comment-id",
+          snippet: {
+            authorDisplayName: "A commenter",
+            likeCount: 0,
+            publishedAt: "2026-07-11T10:00:00Z",
+            textOriginal: "From another video",
+          },
+        },
+      },
+    },
+    null,
+    channelId,
+    channelId,
+  );
+
+  expect(view.videoId).toBe(sourceVideoId);
+  expect(view.commentUrl).toBe(`https://www.youtube.com/watch?v=${sourceVideoId}&lc=Ugy-comment-id`);
+});
+
+test("keeps channel discussion comments that have no source video", () => {
+  const view = commentView(
+    {
+      snippet: {
+        topLevelComment: {
+          id: "Ugy-channel-comment",
+          snippet: {
+            authorDisplayName: "A commenter",
+            likeCount: 0,
+            publishedAt: "2026-07-11T10:00:00Z",
+            textOriginal: "On the channel",
+          },
+        },
+      },
+    },
+    null,
+    channelId,
+    channelId,
+  );
+
+  expect(view.videoId).toBeNull();
+  expect(view.commentUrl).toBe(`https://www.youtube.com/channel/${channelId}`);
 });
 
 test("flags the comment as authored by the video owner when channel IDs match", () => {
@@ -135,6 +200,7 @@ test("maps a reply comment resource to the same display model", () => {
     likeCount: 3,
     publishedAt: "2026-07-11T11:00:00Z",
     text: "A reply",
+    videoId,
   });
 });
 
@@ -247,7 +313,7 @@ test("rejects unsafe author image hosts and formats relative timestamps", () => 
   );
 });
 
-test("extracts required video metadata and maps expected API errors", () => {
+test("extracts video and channel metadata and maps expected API errors", () => {
   expect(
     videoMetadata({
       items: [{ snippet: { channelId: "UC_video_owner", channelTitle: "Example channel", title: "Example video" }, statistics: { commentCount: "1284" } }],
@@ -265,6 +331,49 @@ test("extracts required video metadata and maps expected API errors", () => {
     title: "Example video",
   });
   expect(videoMetadata({ items: [] })).toBeNull();
+  expect(
+    channelMetadata({
+      items: [{
+        id: channelId,
+        snippet: {
+          customUrl: "@openai",
+          thumbnails: { medium: { url: "https://yt3.ggpht.com/channel-photo" } },
+          title: "OpenAI",
+        },
+        statistics: { hiddenSubscriberCount: false, subscriberCount: "1280000", videoCount: "42" },
+      }],
+    }),
+  ).toEqual({
+    channelId,
+    handle: "openai",
+    hiddenSubscriberCount: false,
+    subscriberCount: 1280000,
+    thumbnailUrl: "https://yt3.ggpht.com/channel-photo",
+    title: "OpenAI",
+    videoCount: 42,
+  });
+  expect(
+    channelMetadata({
+      items: [{
+        id: channelId,
+        snippet: { title: "Private subs" },
+        statistics: { hiddenSubscriberCount: true, subscriberCount: "999", videoCount: "3" },
+      }],
+    }),
+  ).toEqual({
+    channelId,
+    handle: null,
+    hiddenSubscriberCount: true,
+    subscriberCount: null,
+    thumbnailUrl: null,
+    title: "Private subs",
+    videoCount: 3,
+  });
+  expect(channelMetadata({ items: [] })).toBeNull();
+  expect(videoTitlesFromResponse({ items: [{ id: videoId, snippet: { title: "Example video" } }] })).toEqual({
+    [videoId]: "Example video",
+  });
   expect(apiErrorMessage({ body: { error: { errors: [{ reason: "commentsDisabled" }] } }, status: 403 })).toContain("disabled");
+  expect(apiErrorMessage({ body: { error: { errors: [{ reason: "channelNotFound" }] } }, status: 404 })).toContain("not available");
   expect(apiErrorMessage({ status: 429 })).toContain("quota");
 });

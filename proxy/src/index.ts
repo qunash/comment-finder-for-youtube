@@ -14,9 +14,13 @@ export interface Env {
 }
 
 const COMMENT_THREADS_PATH = "/yt/commentThreads";
+const CHANNELS_PATH = "/yt/channels";
 const VIDEOS_PATH = "/yt/videos";
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{22}$/;
+const HANDLE_PATTERN = /^[A-Za-z0-9._-]{3,30}$/;
 const EXTENSION_ORIGIN_PREFIX = "chrome-extension://";
+const MAX_VIDEO_IDS = 50;
 
 function responseHeaders(origin?: string): Headers {
   const headers = new Headers({
@@ -66,6 +70,10 @@ function invalidQuery(parameters: URLSearchParams, allowed: readonly string[], r
   return false;
 }
 
+function exactlyOnePresent(parameters: URLSearchParams, names: readonly string[]): boolean {
+  return names.filter((name) => parameters.getAll(name).length === 1).length === 1;
+}
+
 function youtubeRequest(path: string, parameters: Record<string, string>, apiKey: string): URL {
   const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
 
@@ -88,6 +96,21 @@ function passThroughResponse(upstream: Response, origin: string): Response {
   return new Response(upstream.body, { headers, status: upstream.status });
 }
 
+function parseVideoIds(value: string): string[] | null {
+  const ids = value.split(",");
+  if (ids.length === 0 || ids.length > MAX_VIDEO_IDS) {
+    return null;
+  }
+
+  for (const id of ids) {
+    if (!VIDEO_ID_PATTERN.test(id)) {
+      return null;
+    }
+  }
+
+  return ids;
+}
+
 export async function handleRequest(request: Request, env: Env, fetcher: typeof fetch = fetch): Promise<Response> {
   const url = new URL(request.url);
   const allowedOrigin = env.ALLOWED_EXTENSION_ORIGIN;
@@ -101,7 +124,8 @@ export async function handleRequest(request: Request, env: Env, fetcher: typeof 
 
   const origin = allowedOrigin!;
 
-  const isSupportedPath = url.pathname === COMMENT_THREADS_PATH || url.pathname === VIDEOS_PATH;
+  const isSupportedPath =
+    url.pathname === COMMENT_THREADS_PATH || url.pathname === CHANNELS_PATH || url.pathname === VIDEOS_PATH;
   if (request.method === "OPTIONS") {
     if (!isSupportedPath) {
       return errorResponse(404, "Route not found.", "notFound", origin);
@@ -122,16 +146,26 @@ export async function handleRequest(request: Request, env: Env, fetcher: typeof 
   let endpoint: string;
 
   if (url.pathname === COMMENT_THREADS_PATH) {
-    if (invalidQuery(url.searchParams, ["videoId", "searchTerms", "pageToken"], ["videoId", "searchTerms"])) {
-      return errorResponse(400, "Use one videoId and searchTerms; pageToken is optional.", "invalidParameter", origin);
+    if (
+      invalidQuery(url.searchParams, ["videoId", "channelId", "searchTerms", "pageToken"], ["searchTerms"]) ||
+      !exactlyOnePresent(url.searchParams, ["videoId", "channelId"])
+    ) {
+      return errorResponse(400, "Use one videoId or channelId with searchTerms; pageToken is optional.", "invalidParameter", origin);
     }
 
     const videoId = url.searchParams.get("videoId")?.trim();
+    const channelId = url.searchParams.get("channelId")?.trim();
     const searchTerms = url.searchParams.get("searchTerms")?.trim();
     const pageToken = url.searchParams.get("pageToken");
 
-    if (!videoId || !VIDEO_ID_PATTERN.test(videoId) || !searchTerms || searchTerms.length > 200 || (pageToken !== null && (!pageToken || pageToken.length > 1024))) {
-      return errorResponse(400, "The video ID, keyword, or page token is invalid.", "invalidParameter", origin);
+    if (
+      !searchTerms ||
+      searchTerms.length > 200 ||
+      (pageToken !== null && (!pageToken || pageToken.length > 1024)) ||
+      (videoId != null && !VIDEO_ID_PATTERN.test(videoId)) ||
+      (channelId != null && !CHANNEL_ID_PATTERN.test(channelId))
+    ) {
+      return errorResponse(400, "The video ID, channel ID, keyword, or page token is invalid.", "invalidParameter", origin);
     }
 
     if (!env.YOUTUBE_API_KEY) {
@@ -144,29 +178,62 @@ export async function handleRequest(request: Request, env: Env, fetcher: typeof 
       part: "snippet,replies",
       searchTerms,
       textFormat: "plainText",
-      videoId,
     };
+    if (videoId) {
+      parameters.videoId = videoId;
+    } else {
+      parameters.allThreadsRelatedToChannelId = channelId!;
+    }
     if (pageToken) {
       parameters.pageToken = pageToken;
     }
 
     upstreamUrl = youtubeRequest("commentThreads", parameters, env.YOUTUBE_API_KEY);
     endpoint = "commentThreads";
-  } else {
-    if (invalidQuery(url.searchParams, ["id"], ["id"])) {
-      return errorResponse(400, "Use one video id.", "invalidParameter", origin);
+  } else if (url.pathname === CHANNELS_PATH) {
+    if (
+      invalidQuery(url.searchParams, ["id", "forHandle"], []) ||
+      !exactlyOnePresent(url.searchParams, ["id", "forHandle"])
+    ) {
+      return errorResponse(400, "Use one channel id or forHandle.", "invalidParameter", origin);
     }
 
-    const videoId = url.searchParams.get("id")?.trim();
-    if (!videoId || !VIDEO_ID_PATTERN.test(videoId)) {
-      return errorResponse(400, "The video ID is invalid.", "invalidParameter", origin);
+    const channelId = url.searchParams.get("id")?.trim();
+    const forHandle = url.searchParams.get("forHandle")?.trim();
+
+    if ((channelId != null && !CHANNEL_ID_PATTERN.test(channelId)) || (forHandle != null && !HANDLE_PATTERN.test(forHandle))) {
+      return errorResponse(400, "The channel ID or handle is invalid.", "invalidParameter", origin);
     }
 
     if (!env.YOUTUBE_API_KEY) {
       return errorResponse(500, "The proxy is not configured.", "backendError", origin);
     }
 
-    upstreamUrl = youtubeRequest("videos", { id: videoId, part: "snippet,statistics" }, env.YOUTUBE_API_KEY);
+    const parameters: Record<string, string> = { part: "snippet,statistics" };
+    if (channelId) {
+      parameters.id = channelId;
+    } else {
+      parameters.forHandle = forHandle!;
+    }
+
+    upstreamUrl = youtubeRequest("channels", parameters, env.YOUTUBE_API_KEY);
+    endpoint = "channels";
+  } else {
+    if (invalidQuery(url.searchParams, ["id"], ["id"])) {
+      return errorResponse(400, "Use one or more video ids.", "invalidParameter", origin);
+    }
+
+    const rawIds = url.searchParams.get("id")?.trim();
+    const videoIds = rawIds ? parseVideoIds(rawIds) : null;
+    if (!videoIds) {
+      return errorResponse(400, "The video ID list is invalid.", "invalidParameter", origin);
+    }
+
+    if (!env.YOUTUBE_API_KEY) {
+      return errorResponse(500, "The proxy is not configured.", "backendError", origin);
+    }
+
+    upstreamUrl = youtubeRequest("videos", { id: videoIds.join(","), part: "snippet,statistics" }, env.YOUTUBE_API_KEY);
     endpoint = "videos";
   }
 

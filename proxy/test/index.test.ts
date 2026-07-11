@@ -4,6 +4,7 @@ import { type Env, handleRequest } from "../src/index";
 const extensionId = "test-extension-id";
 const origin = `chrome-extension://${extensionId}`;
 const videoId = "dQw4w9WgXcQ";
+const channelId = "UC_x5XG1OV2P6uZZ5FSM9Ttw";
 
 function environment(overrides: Partial<Env> = {}): Env {
   return {
@@ -48,8 +49,50 @@ test("forwards a fixed, encoded commentThreads request and preserves its JSON re
   expect(seenUrls[0].searchParams.get("textFormat")).toBe("plainText");
   expect(seenUrls[0].searchParams.get("searchTerms")).toBe("space & time");
   expect(seenUrls[0].searchParams.get("pageToken")).toBe("opaque=token");
+  expect(seenUrls[0].searchParams.get("videoId")).toBe(videoId);
+  expect(seenUrls[0].searchParams.get("allThreadsRelatedToChannelId")).toBeNull();
   expect(seenUrls[0].searchParams.get("key")).toBe("server-only-key");
   expect(upstreamBody).not.toContain("server-only-key");
+});
+
+test("forwards channel commentThreads as allThreadsRelatedToChannelId", async () => {
+  const seenUrls: URL[] = [];
+  const response = await handleRequest(
+    extensionRequest(`/yt/commentThreads?channelId=${channelId}&searchTerms=hello`),
+    environment(),
+    async (input) => {
+      seenUrls.push(new URL(input instanceof Request ? input.url : input.toString()));
+      return new Response("{}", { headers: { "Content-Type": "application/json" } });
+    },
+  );
+
+  expect(response.status).toBe(200);
+  expect(seenUrls[0].searchParams.get("allThreadsRelatedToChannelId")).toBe(channelId);
+  expect(seenUrls[0].searchParams.get("videoId")).toBeNull();
+  expect(seenUrls[0].searchParams.get("searchTerms")).toBe("hello");
+});
+
+test("rejects mixed or invalid commentThreads filters without fetching", async () => {
+  let fetchCount = 0;
+  const fetcher: typeof fetch = async () => {
+    fetchCount += 1;
+    return new Response();
+  };
+
+  const mixed = await handleRequest(
+    extensionRequest(`/yt/commentThreads?videoId=${videoId}&channelId=${channelId}&searchTerms=hello`),
+    environment(),
+    fetcher,
+  );
+  expect(mixed.status).toBe(400);
+
+  const invalidChannel = await handleRequest(
+    extensionRequest("/yt/commentThreads?channelId=not-a-channel&searchTerms=hello"),
+    environment(),
+    fetcher,
+  );
+  expect(invalidChannel.status).toBe(400);
+  expect(fetchCount).toBe(0);
 });
 
 test("rejects unknown, duplicate, and client-controlled upstream parameters without fetching", async () => {
@@ -105,10 +148,10 @@ test("returns a rate-limit response before calling YouTube and records aggregate
   expect(points).toEqual([{ blobs: ["rate_limited", "429"], doubles: [1] }]);
 });
 
-test("proxies video metadata and preserves YouTube API errors", async () => {
+test("proxies video metadata, channel lookups, and preserves YouTube API errors", async () => {
   const urls: URL[] = [];
   const errorBody = JSON.stringify({ error: { errors: [{ reason: "commentsDisabled" }] } });
-  const response = await handleRequest(
+  const videoResponse = await handleRequest(
     extensionRequest(`/yt/videos?id=${videoId}`),
     environment(),
     async (input) => {
@@ -117,11 +160,60 @@ test("proxies video metadata and preserves YouTube API errors", async () => {
     },
   );
 
-  expect(response.status).toBe(403);
-  expect(await response.text()).toBe(errorBody);
+  expect(videoResponse.status).toBe(403);
+  expect(await videoResponse.text()).toBe(errorBody);
   expect(urls[0].pathname).toBe("/youtube/v3/videos");
   expect(urls[0].searchParams.get("part")).toBe("snippet,statistics");
   expect(urls[0].searchParams.get("id")).toBe(videoId);
+
+  const batchIds = `${videoId},abcdefghijk`;
+  const batchResponse = await handleRequest(
+    extensionRequest(`/yt/videos?id=${batchIds}`),
+    environment(),
+    async (input) => {
+      urls.push(new URL(input instanceof Request ? input.url : input.toString()));
+      return new Response("{}", { headers: { "Content-Type": "application/json" } });
+    },
+  );
+  expect(batchResponse.status).toBe(200);
+  expect(urls[1].searchParams.get("id")).toBe(batchIds);
+
+  const channelResponse = await handleRequest(
+    extensionRequest("/yt/channels?forHandle=openai"),
+    environment(),
+    async (input) => {
+      urls.push(new URL(input instanceof Request ? input.url : input.toString()));
+      return new Response("{}", { headers: { "Content-Type": "application/json" } });
+    },
+  );
+  expect(channelResponse.status).toBe(200);
+  expect(urls[2].pathname).toBe("/youtube/v3/channels");
+  expect(urls[2].searchParams.get("part")).toBe("snippet,statistics");
+  expect(urls[2].searchParams.get("forHandle")).toBe("openai");
+
+  const byIdResponse = await handleRequest(
+    extensionRequest(`/yt/channels?id=${channelId}`),
+    environment(),
+    async (input) => {
+      urls.push(new URL(input instanceof Request ? input.url : input.toString()));
+      return new Response("{}", { headers: { "Content-Type": "application/json" } });
+    },
+  );
+  expect(byIdResponse.status).toBe(200);
+  expect(urls[3].searchParams.get("id")).toBe(channelId);
+});
+
+test("rejects invalid channel and video batch requests without fetching", async () => {
+  let fetchCount = 0;
+  const fetcher: typeof fetch = async () => {
+    fetchCount += 1;
+    return new Response();
+  };
+
+  expect((await handleRequest(extensionRequest("/yt/channels?id=bad&forHandle=openai"), environment(), fetcher)).status).toBe(400);
+  expect((await handleRequest(extensionRequest("/yt/channels?forHandle=ab"), environment(), fetcher)).status).toBe(400);
+  expect((await handleRequest(extensionRequest("/yt/videos?id=not-a-video-id"), environment(), fetcher)).status).toBe(400);
+  expect(fetchCount).toBe(0);
 });
 
 test("does not expose configuration when the upstream is unreachable or a secret is absent", async () => {

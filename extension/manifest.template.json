@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Comment Finder",
   "version": "0.1.0",
-  "description": "Search public comments on the current video.",
+  "description": "Search public comments on the current video or channel.",
   "action": {
     "default_title": "Comment Finder",
     "default_popup": "popup.html"
