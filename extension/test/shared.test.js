@@ -1,5 +1,14 @@
 import { expect, test } from "bun:test";
-import { apiErrorMessage, commentResourceView, commentView, isDeferredChannelPage, relativeTimeFrom, videoIdFromUrl, videoMetadata } from "../src/shared.js";
+import {
+  apiErrorMessage,
+  commentResourceView,
+  commentView,
+  isDeferredChannelPage,
+  relativeTimeFrom,
+  timestampMatches,
+  videoIdFromUrl,
+  videoMetadata,
+} from "../src/shared.js";
 
 const videoId = "dQw4w9WgXcQ";
 
@@ -18,6 +27,17 @@ test("rejects unsupported and malformed page URLs", () => {
   expect(isDeferredChannelPage(`https://www.youtube.com/watch?v=${videoId}`)).toBe(false);
 });
 
+test("finds m:ss and h:mm:ss stamps in comment text", () => {
+  expect(timestampMatches("See 0:00 1:23 12:34 and 1:02:15")).toEqual([
+    { index: 4, label: "0:00", seconds: 0 },
+    { index: 9, label: "1:23", seconds: 83 },
+    { index: 14, label: "12:34", seconds: 754 },
+    { index: 24, label: "1:02:15", seconds: 3735 },
+  ]);
+  expect(timestampMatches("bad 1:99 1:60:00 time")).toEqual([]);
+  expect(timestampMatches("no times here")).toEqual([]);
+});
+
 test("maps a top-level comment to a safe, complete display model", () => {
   const view = commentView(
     {
@@ -32,7 +52,7 @@ test("maps a top-level comment to a safe, complete display model", () => {
             authorProfileImageUrl: "https://yt3.ggpht.com/avatar-photo",
             likeCount: 12,
             publishedAt: "2026-07-11T10:00:00Z",
-            textDisplay: "<script>not markup</script>\nFull public comment",
+            textOriginal: "<script>not markup</script>\nFull public comment",
           },
         },
       },
@@ -65,7 +85,7 @@ test("flags the comment as authored by the video owner when channel IDs match", 
             authorDisplayName: "The owner",
             likeCount: 1,
             publishedAt: "2026-07-11T10:00:00Z",
-            textDisplay: "Hey",
+            textOriginal: "Hey",
           },
         },
       },
@@ -89,7 +109,7 @@ test("maps a reply comment resource to the same display model", () => {
         likeCount: 3,
         parentId: "Ugy-comment-id",
         publishedAt: "2026-07-11T11:00:00Z",
-        textDisplay: "A reply",
+        textOriginal: "A reply",
       },
     },
     videoId,
@@ -120,7 +140,7 @@ test("attaches matching bundled thread replies from search", () => {
               authorDisplayName: "One",
               likeCount: 0,
               publishedAt: "2026-07-11T11:00:00Z",
-              textDisplay: "First",
+              textOriginal: "First",
             },
           },
         ],
@@ -133,7 +153,7 @@ test("attaches matching bundled thread replies from search", () => {
             authorDisplayName: "A commenter",
             likeCount: 0,
             publishedAt: "2026-07-11T10:00:00Z",
-            textDisplay: "Parent",
+            textOriginal: "Parent",
           },
         },
       },
@@ -154,7 +174,7 @@ test("attaches matching bundled thread replies from search", () => {
               authorDisplayName: "One",
               likeCount: 0,
               publishedAt: "2026-07-11T11:00:00Z",
-              textDisplay: "First",
+              textOriginal: "First",
             },
           },
         ],
@@ -167,7 +187,7 @@ test("attaches matching bundled thread replies from search", () => {
             authorDisplayName: "A commenter",
             likeCount: 0,
             publishedAt: "2026-07-11T10:00:00Z",
-            textDisplay: "Parent",
+            textOriginal: "Parent",
           },
         },
       },
@@ -184,7 +204,7 @@ test("does not flag authorship when video or author channel ID is missing", () =
     snippet: {
       topLevelComment: {
         id: "Ugy-comment-id",
-        snippet: { authorDisplayName: "Someone", likeCount: 0, publishedAt: "2026-07-11T10:00:00Z", textDisplay: "Hi" },
+        snippet: { authorDisplayName: "Someone", likeCount: 0, publishedAt: "2026-07-11T10:00:00Z", textOriginal: "Hi" },
       },
     },
   };
@@ -203,7 +223,7 @@ test("rejects unsafe author image hosts and formats relative timestamps", () => 
             authorProfileImageUrl: "https://evil.example/avatar.png",
             likeCount: 0,
             publishedAt: "2026-07-11T10:00:00Z",
-            textDisplay: "Hello",
+            textOriginal: "Hello",
           },
         },
       },

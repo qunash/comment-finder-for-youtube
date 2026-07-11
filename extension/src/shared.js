@@ -82,6 +82,31 @@ function authorProfileImageUrl(urlString) {
   return null;
 }
 
+/** m:ss or h:mm:ss; seconds always two digits; not adjacent to other digits. */
+const TIMESTAMP_PATTERN = /(?<!\d)(?:(\d{1,3}):)?(\d{1,3}):(\d{2})(?!\d)/g;
+
+export function timestampMatches(text) {
+  if (typeof text !== "string" || text.length === 0) {
+    return [];
+  }
+
+  const matches = [];
+  for (const match of text.matchAll(TIMESTAMP_PATTERN)) {
+    const hours = match[1] == null ? 0 : Number(match[1]);
+    const minutes = Number(match[2]);
+    const seconds = Number(match[3]);
+    if (seconds >= 60 || (match[1] != null && minutes >= 60)) {
+      continue;
+    }
+    matches.push({
+      index: match.index,
+      label: match[0],
+      seconds: hours * 3600 + minutes * 60 + seconds,
+    });
+  }
+  return matches;
+}
+
 export function relativeTimeFrom(isoDate, now = Date.now()) {
   if (typeof isoDate !== "string") {
     return null;
@@ -140,7 +165,7 @@ export function commentResourceView(comment, videoId, videoChannelId = null) {
     isVideoAuthor,
     likeCount: Number.isFinite(snippet.likeCount) ? snippet.likeCount : 0,
     publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt : null,
-    text: typeof snippet.textDisplay === "string" ? snippet.textDisplay : "",
+    text: typeof snippet.textOriginal === "string" ? snippet.textOriginal : "",
   };
 }
 

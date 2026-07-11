@@ -747,6 +747,16 @@ a:focus-visible,
   padding: 0 1px;
 }
 
+.comment-timestamp {
+  color: var(--accent);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.comment-timestamp:hover {
+  text-decoration: underline;
+}
+
 .comment-read-more {
   margin: 2px 0 0;
   padding: 0;

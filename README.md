@@ -13,7 +13,7 @@ The extension is deliberately named **Comment Finder**, rather than using YouTub
 | API key | Cloudflare Worker secret | The extension never receives the key. |
 | Hosting | Cloudflare Workers | A small HTTP proxy fits the free edge offering. Bun is used for package management, builds, tests, and Wrangler commands; Workers is the deployed JavaScript runtime, not Bun. |
 | Video metadata | One `videos.list` request per open popup/video | `commentThreads.list` does not return the video title or uploader channel title. Displaying both alongside video comments is required by YouTube's Required Minimum Functionality rules. |
-| Comment rendering | Full `textDisplay`, author, likes, timestamp, and an individual comment link | Full text avoids truncation concerns and the UI uses `textContent`, never HTML injection. |
+| Comment rendering | Full `textOriginal`, author, likes, published time, and an individual comment link | Plain text avoids HTML injection; in-comment `m:ss` / `h:mm:ss` stamps open the watch URL at that time in a new tab. |
 | Caching | Per-video session restore only | The popup restores keyword, metadata, results, and pagination from `chrome.storage.session` keyed by video ID for the current browser session. The Worker does not use Cache, KV, D1, or any comment-data store. |
 | Consent | Versioned local privacy-policy acceptance | Search APIs remain inaccessible until the user accepts the policy. Consent version stays in `chrome.storage.local`; popup session state uses `chrome.storage.session`. |
 | Abuse protection | Cloudflare Rate Limiting binding keyed by `CF-Connecting-IP` | A coarse 20-request/minute protection for an unauthenticated MVP. It is not authentication or a globally accurate quota ledger. |

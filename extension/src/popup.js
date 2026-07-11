@@ -1,6 +1,6 @@
 import { ApiError, fetchVideoMetadata, searchCommentThreads } from "./api.js";
 import { PAGE_ORDER_KEY, isPageState, nextPageOrder, pageStorageKey } from "./page-state.js";
-import { apiErrorMessage, commentView, isDeferredChannelPage, relativeTimeFrom, videoIdFromUrl, videoMetadata } from "./shared.js";
+import { apiErrorMessage, commentView, isDeferredChannelPage, relativeTimeFrom, timestampMatches, videoIdFromUrl, videoMetadata } from "./shared.js";
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
 const PRIVACY_POLICY_VERSION = "2026-07-11-session";
@@ -124,7 +124,7 @@ function actionStat(iconPath, label, countText = null, viewBox = "0 0 24 24") {
   return stat;
 }
 
-function commentTextNodes(text, query) {
+function highlightQueryNodes(text, query) {
   if (!query) {
     return [document.createTextNode(text)];
   }
@@ -149,6 +149,35 @@ function commentTextNodes(text, query) {
 
   if (from < text.length) {
     nodes.push(document.createTextNode(text.slice(from)));
+  }
+
+  return nodes;
+}
+
+function commentTextNodes(text, query, videoId) {
+  const stamps = timestampMatches(text);
+  if (stamps.length === 0) {
+    return highlightQueryNodes(text, query);
+  }
+
+  const nodes = [];
+  let from = 0;
+  for (const stamp of stamps) {
+    if (stamp.index > from) {
+      nodes.push(...highlightQueryNodes(text.slice(from, stamp.index), query));
+    }
+    const link = document.createElement("a");
+    link.className = "comment-timestamp";
+    link.href = `https://www.youtube.com/watch?v=${videoId}&t=${stamp.seconds}s`;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = stamp.label;
+    nodes.push(link);
+    from = stamp.index + stamp.label.length;
+  }
+
+  if (from < text.length) {
+    nodes.push(...highlightQueryNodes(text.slice(from), query));
   }
 
   return nodes;
@@ -250,7 +279,7 @@ function renderCommentView(view, query, options = {}) {
 
   const text = document.createElement("p");
   text.className = "comment-text is-collapsed";
-  text.append(...commentTextNodes(view.text, query));
+  text.append(...commentTextNodes(view.text, query, state.videoId));
   body.append(text);
 
   const actions = document.createElement("div");
