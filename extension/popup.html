@@ -7,16 +7,16 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <main class="popup-shell">
-      <header class="page-header">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8.5L4 21.5V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" /></svg>
-          </span>
-          <h1>Comment Finder</h1>
-        </div>
-      </header>
+    <header class="page-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8.5L4 21.5V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" /></svg>
+        </span>
+        <h1>Comment Finder</h1>
+      </div>
+    </header>
 
+    <main class="popup-shell">
       <section id="privacy-gate" class="consent-card" aria-labelledby="consent-title" hidden>
         <h2 id="consent-title">Before you search</h2>
         <p>
@@ -32,9 +32,10 @@
       </section>
 
       <section id="app" hidden>
-        <section class="video-context" aria-live="polite">
-          <p id="page-context" class="context-message">Checking the active tab…</p>
-          <div id="video-metadata" class="video-metadata" hidden>
+        <div class="sticky-aside">
+          <section class="video-context" aria-live="polite">
+            <p id="page-context" class="context-message">Checking the active tab…</p>
+            <div id="video-metadata" class="video-metadata" hidden>
             <p id="video-title" class="video-title"></p>
             <p class="video-meta">
               <span id="channel-title" class="channel-title"></span>
@@ -69,6 +70,7 @@
             </button>
           </div>
         </form>
+        </div>
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
 

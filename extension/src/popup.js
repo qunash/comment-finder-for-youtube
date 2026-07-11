@@ -14,12 +14,14 @@ const elements = {
   keyword: document.querySelector("#keyword"),
   loadMore: document.querySelector("#load-more"),
   pageContext: document.querySelector("#page-context"),
+  pageHeader: document.querySelector(".page-header"),
   privacyGate: document.querySelector("#privacy-gate"),
   resultList: document.querySelector("#result-list"),
   resultsSection: document.querySelector("#results-section"),
   searchButton: document.querySelector("#search-button"),
   searchForm: document.querySelector("#search-form"),
   status: document.querySelector("#status"),
+  stickyAside: document.querySelector(".sticky-aside"),
   videoCommentCount: document.querySelector("#video-comment-count"),
   videoCommentCountValue: document.querySelector("#video-comment-count-value"),
   videoMetadata: document.querySelector("#video-metadata"),
@@ -541,6 +543,82 @@ async function showApplication() {
   }
 }
 
+function documentOffsetTop(el) {
+  let top = 0;
+  for (let node = el; node; node = node.offsetParent) {
+    top += node.offsetTop;
+  }
+  return top;
+}
+
+function setupStickyChrome() {
+  const header = elements.pageHeader;
+  const aside = elements.stickyAside;
+  if (!header || !aside) {
+    return;
+  }
+
+  const setHeaderHeight = () => {
+    document.documentElement.style.setProperty("--header-height", `${header.offsetHeight}px`);
+  };
+
+  let asideHeight = 0;
+  let minTranslate = 0;
+  let stickyStartY = 0;
+  let translate = 0;
+  let lastY = window.scrollY;
+
+  const measure = () => {
+    setHeaderHeight();
+    asideHeight = aside.offsetHeight;
+    minTranslate = -(asideHeight + 12);
+    stickyStartY = documentOffsetTop(aside) - header.offsetHeight;
+    if (translate < minTranslate) translate = minTranslate;
+    if (translate > 0) translate = 0;
+  };
+
+  const apply = () => {
+    aside.style.transform = translate !== 0 ? `translateY(${translate}px)` : "";
+  };
+
+  setHeaderHeight();
+
+  const resizeObserver = new ResizeObserver(() => {
+    measure();
+    apply();
+  });
+  resizeObserver.observe(aside);
+  resizeObserver.observe(header);
+
+  window.addEventListener("resize", () => {
+    measure();
+    apply();
+  }, { passive: true });
+
+  window.addEventListener("scroll", () => {
+    const y = window.scrollY;
+    const delta = y - lastY;
+    lastY = y;
+
+    if (asideHeight === 0) {
+      aside.classList.remove("is-stuck");
+      return;
+    }
+
+    const stuck = y > stickyStartY;
+    aside.classList.toggle("is-stuck", stuck);
+
+    if (stuck) {
+      translate = Math.min(0, Math.max(minTranslate, translate - delta));
+    } else {
+      translate = 0;
+    }
+    apply();
+
+    header.classList.toggle("is-scrolled", y > 4);
+  }, { passive: true });
+}
+
 async function initialize() {
   const stored = await chrome.storage.local.get(CONSENT_STORAGE_KEY);
   if (stored[CONSENT_STORAGE_KEY] !== PRIVACY_POLICY_VERSION) {
@@ -575,5 +653,7 @@ elements.loadMore.addEventListener("click", () => {
     void search(state.nextPageToken);
   }
 });
+
+setupStickyChrome();
 
 void initialize();

@@ -18,6 +18,7 @@
 
   --shadow-sm: 0 1px 2px rgba(15, 15, 15, 0.04), 0 2px 6px rgba(15, 15, 15, 0.06);
   --shadow-md: 0 2px 8px rgba(15, 15, 15, 0.08), 0 12px 28px rgba(15, 15, 15, 0.08);
+  --aside-shadow: 0 8px 12px -8px rgba(15, 15, 15, 0.18);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -50,6 +51,7 @@
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.45);
     --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.5), 0 16px 36px rgba(0, 0, 0, 0.55);
+    --aside-shadow: 0 8px 12px -8px rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -95,14 +97,25 @@ a {
 .popup-shell {
   display: grid;
   gap: 14px;
-  padding: 18px 16px 14px;
+  padding: 0 16px 14px;
 }
 
 /* Header / brand */
 
 .page-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
+  padding: 10px 16px;
+  background: var(--page);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.page-header.is-scrolled {
+  border-bottom-color: var(--line);
 }
 
 .brand {
@@ -142,6 +155,7 @@ a {
 .consent-card {
   display: grid;
   gap: 12px;
+  margin-top: 18px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -186,6 +200,21 @@ a {
 #app {
   display: grid;
   gap: 12px;
+}
+
+.sticky-aside {
+  position: sticky;
+  top: var(--header-height, 0px);
+  z-index: 4;
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  background: var(--page);
+  transition: box-shadow 0.2s ease;
+}
+
+.sticky-aside.is-stuck {
+  box-shadow: var(--aside-shadow);
 }
 
 .video-context {
@@ -759,7 +788,9 @@ a:focus-visible,
   .comment,
   .comment-action,
   .search-field,
-  .clear-button {
+  .clear-button,
+  .page-header,
+  .sticky-aside {
     transition: none;
   }
 }
