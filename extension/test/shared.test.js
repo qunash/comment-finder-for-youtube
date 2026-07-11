@@ -78,8 +78,18 @@ test("rejects unsafe author image hosts and formats relative timestamps", () => 
 });
 
 test("extracts required video metadata and maps expected API errors", () => {
+  expect(
+    videoMetadata({
+      items: [{ snippet: { channelTitle: "Example channel", title: "Example video" }, statistics: { commentCount: "1284" } }],
+    }),
+  ).toEqual({
+    channelTitle: "Example channel",
+    commentCount: 1284,
+    title: "Example video",
+  });
   expect(videoMetadata({ items: [{ snippet: { channelTitle: "Example channel", title: "Example video" } }] })).toEqual({
     channelTitle: "Example channel",
+    commentCount: null,
     title: "Example video",
   });
   expect(videoMetadata({ items: [] })).toBeNull();

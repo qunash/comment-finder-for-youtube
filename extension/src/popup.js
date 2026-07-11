@@ -19,6 +19,8 @@ const elements = {
   searchButton: document.querySelector("#search-button"),
   searchForm: document.querySelector("#search-form"),
   status: document.querySelector("#status"),
+  videoCommentCount: document.querySelector("#video-comment-count"),
+  videoCommentCountValue: document.querySelector("#video-comment-count-value"),
   videoMetadata: document.querySelector("#video-metadata"),
   videoTitle: document.querySelector("#video-title"),
 };
@@ -59,6 +61,8 @@ function setLoadMoreVisibility() {
 function showVideoSkeleton() {
   elements.videoTitle.textContent = "";
   elements.channelTitle.textContent = "";
+  elements.videoCommentCountValue.textContent = "";
+  elements.videoCommentCount.hidden = true;
   elements.videoMetadata.classList.add("is-skeleton");
   elements.pageContext.hidden = true;
   elements.videoMetadata.hidden = false;
@@ -68,6 +72,21 @@ function showVideoMetadata() {
   elements.videoMetadata.classList.remove("is-skeleton");
   elements.videoTitle.textContent = state.metadata.title;
   elements.channelTitle.textContent = state.metadata.channelTitle;
+
+  const { commentCount } = state.metadata;
+  const hasCount = typeof commentCount === "number";
+  elements.videoCommentCount.hidden = !hasCount;
+  if (hasCount) {
+    const formatted = new Intl.NumberFormat().format(commentCount);
+    elements.videoCommentCountValue.textContent = formatted;
+    elements.videoCommentCount.setAttribute(
+      "aria-label",
+      commentCount === 1 ? "1 comment" : `${formatted} comments`,
+    );
+  } else {
+    elements.videoCommentCountValue.textContent = "";
+  }
+
   elements.pageContext.hidden = true;
   elements.videoMetadata.hidden = false;
 }

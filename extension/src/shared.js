@@ -151,7 +151,11 @@ export function videoMetadata(response) {
     return null;
   }
 
-  return { channelTitle: snippet.channelTitle, title: snippet.title };
+  const rawCount = item?.statistics?.commentCount;
+  const parsed = typeof rawCount === "string" ? Number(rawCount) : rawCount;
+  const commentCount = Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+
+  return { channelTitle: snippet.channelTitle, commentCount, title: snippet.title };
 }
 
 export function apiErrorMessage(error) {

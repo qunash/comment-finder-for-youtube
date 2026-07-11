@@ -120,7 +120,7 @@ test("proxies video metadata and preserves YouTube API errors", async () => {
   expect(response.status).toBe(403);
   expect(await response.text()).toBe(errorBody);
   expect(urls[0].pathname).toBe("/youtube/v3/videos");
-  expect(urls[0].searchParams.get("part")).toBe("snippet");
+  expect(urls[0].searchParams.get("part")).toBe("snippet,statistics");
   expect(urls[0].searchParams.get("id")).toBe(videoId);
 });
 

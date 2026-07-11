@@ -166,7 +166,7 @@ export async function handleRequest(request: Request, env: Env, fetcher: typeof 
       return errorResponse(500, "The proxy is not configured.", "backendError", origin);
     }
 
-    upstreamUrl = youtubeRequest("videos", { id: videoId, part: "snippet" }, env.YOUTUBE_API_KEY);
+    upstreamUrl = youtubeRequest("videos", { id: videoId, part: "snippet,statistics" }, env.YOUTUBE_API_KEY);
     endpoint = "videos";
   }
 
