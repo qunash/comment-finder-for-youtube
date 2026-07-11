@@ -52,14 +52,20 @@
           <label class="visually-hidden" for="keyword">Keyword or phrase</label>
           <div class="search-row">
             <span class="search-field">
-              <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="16.5" y1="16.5" x2="21" y2="21" />
-              </svg>
               <input id="keyword" name="keyword" type="search" maxlength="200" autocomplete="off" placeholder="Search comments" disabled required />
+              <button id="clear-keyword" class="clear-button" type="button" aria-label="Clear search">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
             </span>
-            <button id="search-button" class="button button-primary" type="submit" disabled>
-              <span class="button-label">Search</span>
+            <button id="search-button" class="button search-button" type="submit" disabled aria-label="Search">
+              <span class="button-label">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="16.5" y1="16.5" x2="21" y2="21" />
+                </svg>
+              </span>
             </button>
           </div>
         </form>

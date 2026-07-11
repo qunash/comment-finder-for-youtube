@@ -10,6 +10,7 @@ const elements = {
   app: document.querySelector("#app"),
   channelTitle: document.querySelector("#channel-title"),
   consentCheckbox: document.querySelector("#consent-checkbox"),
+  clearKeyword: document.querySelector("#clear-keyword"),
   keyword: document.querySelector("#keyword"),
   loadMore: document.querySelector("#load-more"),
   pageContext: document.querySelector("#page-context"),
@@ -562,6 +563,11 @@ elements.acceptConsent.addEventListener("click", async () => {
 elements.searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
   void search();
+});
+
+elements.clearKeyword.addEventListener("click", () => {
+  elements.keyword.value = "";
+  elements.keyword.focus();
 });
 
 elements.loadMore.addEventListener("click", () => {
