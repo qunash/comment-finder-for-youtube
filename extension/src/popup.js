@@ -386,6 +386,7 @@ function renderPage(response, append) {
     elements.resultsSection.hidden = true;
     setStatus("No matching comments were returned for this keyword.");
     void persistPageState();
+    window.scrollTo(0, 0);
     return;
   }
 
@@ -393,6 +394,9 @@ function renderPage(response, append) {
   renderCommentViews(views, append, elements.keyword.value.trim());
   setStatus("");
   void persistPageState();
+  if (!append) {
+    window.scrollTo(0, 0);
+  }
 }
 
 function stopCurrentRequest() {
