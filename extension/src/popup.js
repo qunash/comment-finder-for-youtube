@@ -40,8 +40,15 @@ const elements = {
   stickyAside: document.querySelector(".sticky-aside"),
   videoCommentCount: document.querySelector("#video-comment-count"),
   videoCommentCountValue: document.querySelector("#video-comment-count-value"),
+  videoLikeCount: document.querySelector("#video-like-count"),
+  videoLikeCountValue: document.querySelector("#video-like-count-value"),
   videoMetadata: document.querySelector("#video-metadata"),
+  videoMetaStats: document.querySelector("#video-meta-stats"),
+  videoPublished: document.querySelector("#video-published"),
+  videoThumbnail: document.querySelector("#video-thumbnail"),
   videoTitle: document.querySelector("#video-title"),
+  videoViewCount: document.querySelector("#video-view-count"),
+  videoViewCountValue: document.querySelector("#video-view-count-value"),
 };
 
 const state = {
@@ -105,12 +112,31 @@ function clearChannelCardExtras() {
   elements.channelVideoCount.removeAttribute("aria-label");
 }
 
+function clearVideoCardExtras() {
+  elements.videoThumbnail.hidden = true;
+  elements.videoThumbnail.removeAttribute("src");
+  elements.videoPublished.hidden = true;
+  elements.videoPublished.textContent = "";
+  elements.videoPublished.removeAttribute("datetime");
+  elements.videoPublished.removeAttribute("aria-label");
+  elements.videoViewCount.hidden = true;
+  elements.videoViewCountValue.textContent = "";
+  elements.videoViewCount.removeAttribute("aria-label");
+  elements.videoLikeCount.hidden = true;
+  elements.videoLikeCountValue.textContent = "";
+  elements.videoLikeCount.removeAttribute("aria-label");
+  elements.videoCommentCount.hidden = true;
+  elements.videoCommentCountValue.textContent = "";
+  elements.videoCommentCount.removeAttribute("aria-label");
+  elements.videoMetaStats.hidden = true;
+}
+
 function showVideoSkeleton() {
   elements.videoTitle.textContent = "";
   elements.channelTitle.textContent = "";
-  elements.videoCommentCountValue.textContent = "";
-  elements.videoCommentCount.hidden = true;
   clearChannelCardExtras();
+  clearVideoCardExtras();
+  elements.videoMetaStats.hidden = false;
   elements.videoMetadata.classList.add("is-skeleton");
   elements.pageContext.hidden = true;
   elements.videoMetadata.hidden = false;
@@ -120,6 +146,7 @@ function showPageMetadata() {
   elements.videoMetadata.classList.remove("is-skeleton");
 
   if (isChannelScoped()) {
+    clearVideoCardExtras();
     elements.videoTitle.textContent = state.metadata.title;
     elements.channelTitle.textContent =
       state.target?.kind === "handle"
@@ -127,8 +154,6 @@ function showPageMetadata() {
         : state.metadata.handle
           ? `@${state.metadata.handle}`
           : "Channel";
-    elements.videoCommentCount.hidden = true;
-    elements.videoCommentCountValue.textContent = "";
 
     if (state.metadata.thumbnailUrl) {
       elements.channelAvatar.src = state.metadata.thumbnailUrl;
@@ -142,10 +167,10 @@ function showPageMetadata() {
     if (typeof state.metadata.subscriberCount === "number") {
       const formatted = compactCount(state.metadata.subscriberCount);
       elements.channelSubscriberCountValue.textContent =
-        state.metadata.subscriberCount === 1 ? "1 subscriber" : `${formatted} subscribers`;
+        state.metadata.subscriberCount === 1 ? "1 sub" : `${formatted} subs`;
       elements.channelSubscriberCount.setAttribute(
         "aria-label",
-        state.metadata.subscriberCount === 1 ? "1 subscriber" : `${formatted} subscribers`,
+        state.metadata.subscriberCount === 1 ? "1 sub" : `${formatted} subs`,
       );
       elements.channelSubscriberCount.hidden = false;
     } else {
@@ -173,6 +198,60 @@ function showPageMetadata() {
     elements.videoTitle.textContent = state.metadata.title;
     elements.channelTitle.textContent = state.metadata.channelTitle;
 
+    if (state.metadata.thumbnailUrl) {
+      elements.videoThumbnail.src = state.metadata.thumbnailUrl;
+      elements.videoThumbnail.referrerPolicy = "no-referrer";
+      elements.videoThumbnail.hidden = false;
+    } else {
+      elements.videoThumbnail.hidden = true;
+      elements.videoThumbnail.removeAttribute("src");
+    }
+
+    if (state.metadata.publishedAt) {
+      const relative = relativeTimeFrom(state.metadata.publishedAt);
+      const date = new Date(state.metadata.publishedAt);
+      if (relative && !Number.isNaN(date.getTime())) {
+        elements.videoPublished.dateTime = date.toISOString();
+        elements.videoPublished.textContent = relative;
+        elements.videoPublished.setAttribute("aria-label", `Published ${relative}`);
+        elements.videoPublished.hidden = false;
+      } else {
+        elements.videoPublished.hidden = true;
+        elements.videoPublished.textContent = "";
+        elements.videoPublished.removeAttribute("datetime");
+        elements.videoPublished.removeAttribute("aria-label");
+      }
+    } else {
+      elements.videoPublished.hidden = true;
+      elements.videoPublished.textContent = "";
+      elements.videoPublished.removeAttribute("datetime");
+      elements.videoPublished.removeAttribute("aria-label");
+    }
+
+    if (typeof state.metadata.viewCount === "number") {
+      const formatted = compactCount(state.metadata.viewCount);
+      const label = state.metadata.viewCount === 1 ? "1 view" : `${formatted} views`;
+      elements.videoViewCountValue.textContent = label;
+      elements.videoViewCount.setAttribute("aria-label", label);
+      elements.videoViewCount.hidden = false;
+    } else {
+      elements.videoViewCount.hidden = true;
+      elements.videoViewCountValue.textContent = "";
+      elements.videoViewCount.removeAttribute("aria-label");
+    }
+
+    if (typeof state.metadata.likeCount === "number") {
+      const formatted = compactCount(state.metadata.likeCount);
+      const label = state.metadata.likeCount === 1 ? "1 like" : `${formatted} likes`;
+      elements.videoLikeCountValue.textContent = label;
+      elements.videoLikeCount.setAttribute("aria-label", label);
+      elements.videoLikeCount.hidden = false;
+    } else {
+      elements.videoLikeCount.hidden = true;
+      elements.videoLikeCountValue.textContent = "";
+      elements.videoLikeCount.removeAttribute("aria-label");
+    }
+
     const { commentCount } = state.metadata;
     const hasCount = typeof commentCount === "number";
     elements.videoCommentCount.hidden = !hasCount;
@@ -185,7 +264,14 @@ function showPageMetadata() {
       );
     } else {
       elements.videoCommentCountValue.textContent = "";
+      elements.videoCommentCount.removeAttribute("aria-label");
     }
+
+    elements.videoMetaStats.hidden = !(
+      typeof state.metadata.viewCount === "number" ||
+      typeof state.metadata.likeCount === "number" ||
+      hasCount
+    );
   }
 
   elements.pageContext.hidden = true;

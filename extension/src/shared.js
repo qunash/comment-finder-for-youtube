@@ -84,6 +84,8 @@ const AUTHOR_IMAGE_HOSTS = new Set([
   "lh3.googleusercontent.com",
 ]);
 
+const VIDEO_THUMBNAIL_HOSTS = new Set(["i.ytimg.com", "i9.ytimg.com"]);
+
 function httpsYouTubeChannelUrl(urlString) {
   if (typeof urlString !== "string") {
     return null;
@@ -104,14 +106,14 @@ function httpsYouTubeChannelUrl(urlString) {
   return null;
 }
 
-function authorProfileImageUrl(urlString) {
+function httpsImageUrl(urlString, allowedHosts) {
   if (typeof urlString !== "string") {
     return null;
   }
 
   try {
     const imageUrl = new URL(urlString);
-    if (imageUrl.protocol === "https:" && AUTHOR_IMAGE_HOSTS.has(imageUrl.hostname)) {
+    if (imageUrl.protocol === "https:" && allowedHosts.has(imageUrl.hostname)) {
       return imageUrl.toString();
     }
   } catch (error) {
@@ -121,6 +123,14 @@ function authorProfileImageUrl(urlString) {
   }
 
   return null;
+}
+
+function authorProfileImageUrl(urlString) {
+  return httpsImageUrl(urlString, AUTHOR_IMAGE_HOSTS);
+}
+
+function videoThumbnailUrl(urlString) {
+  return httpsImageUrl(urlString, VIDEO_THUMBNAIL_HOSTS);
 }
 
 function nonNegativeCount(value) {
@@ -265,10 +275,26 @@ export function videoMetadata(response) {
     return null;
   }
 
-  const rawCount = item?.statistics?.commentCount;
-  const commentCount = nonNegativeCount(rawCount);
+  const statistics = item?.statistics;
+  const thumbnails = snippet.thumbnails;
+  const thumbnailUrl = videoThumbnailUrl(
+    thumbnails?.medium?.url ?? thumbnails?.high?.url ?? thumbnails?.default?.url ?? null,
+  );
+  const publishedAt =
+    typeof snippet.publishedAt === "string" && !Number.isNaN(Date.parse(snippet.publishedAt))
+      ? snippet.publishedAt
+      : null;
 
-  return { channelId: typeof snippet.channelId === "string" ? snippet.channelId : null, channelTitle: snippet.channelTitle, commentCount, title: snippet.title };
+  return {
+    channelId: typeof snippet.channelId === "string" ? snippet.channelId : null,
+    channelTitle: snippet.channelTitle,
+    commentCount: nonNegativeCount(statistics?.commentCount),
+    likeCount: nonNegativeCount(statistics?.likeCount),
+    publishedAt,
+    thumbnailUrl,
+    title: snippet.title,
+    viewCount: nonNegativeCount(statistics?.viewCount),
+  };
 }
 
 export function channelMetadata(response) {

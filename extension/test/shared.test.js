@@ -316,19 +316,57 @@ test("rejects unsafe author image hosts and formats relative timestamps", () => 
 test("extracts video and channel metadata and maps expected API errors", () => {
   expect(
     videoMetadata({
-      items: [{ snippet: { channelId: "UC_video_owner", channelTitle: "Example channel", title: "Example video" }, statistics: { commentCount: "1284" } }],
+      items: [{
+        snippet: {
+          channelId: "UC_video_owner",
+          channelTitle: "Example channel",
+          publishedAt: "2026-01-15T12:00:00Z",
+          thumbnails: { medium: { url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg" } },
+          title: "Example video",
+        },
+        statistics: { commentCount: "1284", likeCount: "99000", viewCount: "1280000" },
+      }],
     }),
   ).toEqual({
     channelId: "UC_video_owner",
     channelTitle: "Example channel",
     commentCount: 1284,
+    likeCount: 99000,
+    publishedAt: "2026-01-15T12:00:00Z",
+    thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
     title: "Example video",
+    viewCount: 1280000,
   });
   expect(videoMetadata({ items: [{ snippet: { channelTitle: "Example channel", title: "Example video" } }] })).toEqual({
     channelId: null,
     channelTitle: "Example channel",
     commentCount: null,
+    likeCount: null,
+    publishedAt: null,
+    thumbnailUrl: null,
     title: "Example video",
+    viewCount: null,
+  });
+  expect(
+    videoMetadata({
+      items: [{
+        snippet: {
+          channelTitle: "Example channel",
+          publishedAt: "not-a-date",
+          thumbnails: { medium: { url: "https://evil.example/thumb.jpg" } },
+          title: "Example video",
+        },
+      }],
+    }),
+  ).toEqual({
+    channelId: null,
+    channelTitle: "Example channel",
+    commentCount: null,
+    likeCount: null,
+    publishedAt: null,
+    thumbnailUrl: null,
+    title: "Example video",
+    viewCount: null,
   });
   expect(videoMetadata({ items: [] })).toBeNull();
   expect(
