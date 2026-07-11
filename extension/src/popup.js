@@ -102,7 +102,61 @@ function actionStat(iconPath, label, countText = null, viewBox = "0 0 24 24") {
   return stat;
 }
 
-function renderCommentView(view) {
+function commentTextNodes(text, query) {
+  if (!query) {
+    return [document.createTextNode(text)];
+  }
+
+  const haystack = text.toLowerCase();
+  const needle = query.toLowerCase();
+  const nodes = [];
+  let from = 0;
+  let at = haystack.indexOf(needle, from);
+
+  while (at !== -1) {
+    if (at > from) {
+      nodes.push(document.createTextNode(text.slice(from, at)));
+    }
+    const mark = document.createElement("mark");
+    mark.className = "comment-match";
+    mark.textContent = text.slice(at, at + needle.length);
+    nodes.push(mark);
+    from = at + needle.length;
+    at = haystack.indexOf(needle, from);
+  }
+
+  if (from < text.length) {
+    nodes.push(document.createTextNode(text.slice(from)));
+  }
+
+  return nodes;
+}
+
+function revealReadMore(comment) {
+  const text = comment.querySelector(".comment-text");
+  if (!text || !text.classList.contains("is-collapsed")) {
+    return;
+  }
+
+  text.classList.remove("is-collapsed");
+  const fullHeight = text.scrollHeight;
+  text.classList.add("is-collapsed");
+  if (fullHeight <= text.clientHeight) {
+    return;
+  }
+
+  const readMore = document.createElement("button");
+  readMore.type = "button";
+  readMore.className = "comment-read-more";
+  readMore.textContent = "Read more";
+  readMore.addEventListener("click", () => {
+    text.classList.remove("is-collapsed");
+    readMore.remove();
+  });
+  text.after(readMore);
+}
+
+function renderCommentView(view, query) {
   const comment = document.createElement("article");
   comment.className = "comment";
 
@@ -168,8 +222,8 @@ function renderCommentView(view) {
   body.append(header);
 
   const text = document.createElement("p");
-  text.className = "comment-text";
-  text.textContent = view.text;
+  text.className = "comment-text is-collapsed";
+  text.append(...commentTextNodes(view.text, query));
   body.append(text);
 
   const actions = document.createElement("div");
@@ -200,16 +254,23 @@ function renderCommentView(view) {
   return comment;
 }
 
-function renderCommentViews(views, append) {
+function renderCommentViews(views, append, query) {
   const fragment = document.createDocumentFragment();
+  const rendered = [];
   for (const view of views) {
-    fragment.append(renderCommentView(view));
+    const comment = renderCommentView(view, query);
+    rendered.push(comment);
+    fragment.append(comment);
   }
 
   if (!append) {
     elements.resultList.replaceChildren();
   }
   elements.resultList.append(fragment);
+
+  for (const comment of rendered) {
+    revealReadMore(comment);
+  }
 }
 
 function persistPageState() {
@@ -253,8 +314,8 @@ function applyPageState(page) {
   }
 
   if (state.comments.length > 0) {
-    renderCommentViews(state.comments, false);
     elements.resultsSection.hidden = false;
+    renderCommentViews(state.comments, false, elements.keyword.value.trim());
   } else {
     elements.resultList.replaceChildren();
     elements.resultsSection.hidden = true;
@@ -291,8 +352,6 @@ function renderPage(response, append) {
     state.comments.push(...views);
   }
 
-  renderCommentViews(views, append);
-
   state.nextPageToken = typeof response.nextPageToken === "string" ? response.nextPageToken : null;
   setLoadMoreVisibility();
 
@@ -304,6 +363,7 @@ function renderPage(response, append) {
   }
 
   elements.resultsSection.hidden = false;
+  renderCommentViews(views, append, elements.keyword.value.trim());
   setStatus("");
   void persistPageState();
 }
