@@ -1,6 +1,6 @@
 # Comment Finder
 
-Comment Finder is a popup-only Chrome extension for searching public comments on the current YouTube video. It uses the YouTube Data API v3 through a Cloudflare Workers proxy, keeping the API key out of the extension bundle.
+Comment Finder is a popup-only Chrome extension for searching public comments on the current YouTube video or channel. It uses the YouTube Data API v3 through a Cloudflare Workers proxy, keeping the API key out of the extension bundle.
 
 The extension is deliberately named **Comment Finder**, rather than using YouTube in its product name. YouTube's branding rules prohibit using “YouTube”, “YT”, or a variant in an application's overall name. The bundled, unmodified “Developed with YouTube” asset links to YouTube instead. See the [branding guidelines](https://developers.google.com/youtube/terms/branding-guidelines).
 
@@ -9,12 +9,14 @@ The extension is deliberately named **Comment Finder**, rather than using YouTub
 | Concern | Decision | Why |
 | --- | --- | --- |
 | Extension UI | MV3 action popup only | No page injection, content script, DOM scraping, or YouTube UI modification. `activeTab` reads only the invoked tab URL. |
-| Current page | `https://*.youtube.com/watch?v={id}` | The MVP supports video search only. Channel, handle, and legacy `/c/` search are intentionally deferred. |
+| Current page | Watch, Shorts, `/channel/UC…`, or `@handle` | Video search uses `videoId`. Channel search uses `allThreadsRelatedToChannelId`. Legacy `/c/` custom URLs stay unsupported. |
 | API key | Cloudflare Worker secret | The extension never receives the key. |
 | Hosting | Cloudflare Workers | A small HTTP proxy fits the free edge offering. Bun is used for package management, builds, tests, and Wrangler commands; Workers is the deployed JavaScript runtime, not Bun. |
 | Video metadata | One `videos.list` request per open popup/video | `commentThreads.list` does not return the video title or uploader channel title. Displaying both alongside video comments is required by YouTube's Required Minimum Functionality rules. |
+| Channel metadata | `channels.list` by `id` or `forHandle` | Handle pages resolve to a channel ID before search and session restore. |
+| Channel result titles | Batched `videos.list` (up to 50 IDs) | Channel comment threads include `snippet.videoId` but not the source video title. |
 | Comment rendering | Full `textOriginal`, author, likes, published time, and an individual comment link | Plain text avoids HTML injection; in-comment `m:ss` / `h:mm:ss` stamps open the watch URL at that time in a new tab. |
-| Caching | Per-video session restore only | The popup restores keyword, metadata, results, and pagination from `chrome.storage.session` keyed by video ID for the current browser session. The Worker does not use Cache, KV, D1, or any comment-data store. |
+| Caching | Per-target session restore only | The popup restores keyword, metadata, results, and pagination from `chrome.storage.session` keyed by the current page identity (`video:…`, `channel:…`, or `handle:…`) for the browser session. Handle pages resolve to a channel ID only on a cache miss. The Worker does not use Cache, KV, D1, or any comment-data store. |
 | Consent | Versioned local privacy-policy acceptance | Search APIs remain inaccessible until the user accepts the policy. Consent version stays in `chrome.storage.local`; popup session state uses `chrome.storage.session`. |
 | Abuse protection | Cloudflare Rate Limiting binding keyed by `CF-Connecting-IP` | A coarse 20-request/minute protection for an unauthenticated MVP. It is not authentication or a globally accurate quota ledger. |
 | Quota monitoring | Analytics Engine endpoint/status counters | One aggregate event per upstream API call; it records no keyword, video ID, comment, author, or IP. |
@@ -25,10 +27,11 @@ No UI framework, YouTube client SDK, server framework, or database is used. The 
 
 ```text
 Chrome MV3 popup
-  activeTab → parses only the current watch URL
-  ├─ chrome.storage.session → restore prior state for this video ID
-  ├─ GET /yt/videos?id=VIDEO_ID          (when metadata is not already restored)
-  └─ GET /yt/commentThreads?videoId=...&searchTerms=...&pageToken=...
+  activeTab → parses watch, Shorts, /channel/UC…, or @handle URL
+  ├─ chrome.storage.session → restore prior state for this video/channel/handle
+  ├─ GET /yt/videos?id=VIDEO_ID[,…]     (video metadata or channel source titles)
+  ├─ GET /yt/channels?id=…|forHandle=…  (channel pages)
+  └─ GET /yt/commentThreads?videoId=…|channelId=…&searchTerms=…&pageToken=…
                  │
                  ▼
 Cloudflare Worker
@@ -47,20 +50,20 @@ The Worker returns the upstream YouTube JSON body and status unchanged, while ad
 
 Implemented now:
 
-- Video ID detection from the current `youtube.com/watch?v=…` tab.
+- Video ID detection from the current `youtube.com/watch?v=…` or `/shorts/…` tab.
+- Channel ID detection from `/channel/UC…` and handle resolution from `@handle` via `channels.list?forHandle=…`.
 - Popup search, a privacy-consent gate, full comment display, and pagination.
 - Inline matching replies from search, shown expanded, plus a YouTube “See full thread” link.
-- Per-video popup state restore for the current browser session.
-- Video title and uploader channel title display.
+- Per-video, per-channel, and per-handle popup state restore for the current browser session.
+- Video title and uploader channel title display; channel title (and handle when available) for channel pages.
+- Source video title links on channel search results.
 - Individual `watch?v={videoId}&lc={commentId}` links.
 - Secure Worker proxy, exact CORS, edge rate limiting, aggregate quota telemetry, and no server-side cache.
 
 Deferred:
 
-- Channel/handle/legacy custom-URL search.
+- Legacy `/c/*` custom-URL search.
 - Share links and permanent offline storage.
-
-When channel search is added, `/channel/UC…` can use its ID directly, `@handle` should resolve with `channels.list?forHandle=…`, and legacy `/c/*` should remain unsupported unless a reliable explicit resolution path is chosen. Channel result video titles require batched `videos.list` calls (up to 50 video IDs per request).
 
 ## Project layout
 
@@ -126,7 +129,7 @@ bun install
    bun run dev:proxy
    ```
 
-5. Reload the unpacked extension after each build. Test a comment-enabled video, a disabled-comments video, a blank keyword, an unsupported page, and pagination.
+5. Reload the unpacked extension after each build. Test a comment-enabled video, a channel or @handle page, a disabled-comments video, a blank keyword, an unsupported page, and pagination.
 
 Local and production extension IDs differ. Use a separate local Worker or separate local origin configuration; never add a wildcard origin.
 
@@ -166,12 +169,13 @@ The rate-limit binding uses namespace `1001`. Cloudflare requires this to be a p
 
 | Route | Accepted client query | Forced upstream parameters |
 | --- | --- | --- |
-| `GET /yt/commentThreads` | `videoId`, `searchTerms`, optional `pageToken` | `part=snippet,replies`, `maxResults=100`, `order=time`, `textFormat=plainText` |
-| `GET /yt/videos` | `id` | `part=snippet,statistics` |
+| `GET /yt/commentThreads` | exactly one of `videoId` or `channelId`, plus `searchTerms`, optional `pageToken` | `part=snippet,replies`, `maxResults=100`, `order=time`, `textFormat=plainText`; `channelId` maps to `allThreadsRelatedToChannelId` |
+| `GET /yt/channels` | exactly one of `id` or `forHandle` | `part=snippet,statistics` |
+| `GET /yt/videos` | `id` (one ID, or comma-separated list up to 50) | `part=snippet,statistics` |
 
-Both routes reject duplicate, unknown, malformed, and client-controlled API parameters. All `GET` and `OPTIONS` requests must have the exact configured `Origin`. CORS is a browser control rather than authentication—non-browser callers can forge an Origin header—so do not treat a static extension token as a secret. A token bundled in an extension is extractable.
+All routes reject duplicate, unknown, malformed, and client-controlled API parameters. All `GET` and `OPTIONS` requests must have the exact configured `Origin`. CORS is a browser control rather than authentication—non-browser callers can forge an Origin header—so do not treat a static extension token as a secret. A token bundled in an extension is extractable.
 
-Analytics Engine writes only two dimensions: route (`commentThreads`, `videos`, or `rate_limited`) and HTTP status, plus a numeric count. It creates the configured dataset on its first write. The Google Cloud quota dashboard remains the authoritative daily quota view.
+Analytics Engine writes only two dimensions: route (`commentThreads`, `channels`, `videos`, or `rate_limited`) and HTTP status, plus a numeric count. It creates the configured dataset on its first write. The Google Cloud quota dashboard remains the authoritative daily quota view.
 
 ## Validation
 
@@ -192,7 +196,7 @@ The test suite covers URL parsing, XSS-safe comment data mapping, privacy/manife
 - [ ] Replace `REPLACE_WITH_PRIVACY_CONTACT` in `extension/privacy.html` and publish the same policy at a stable public URL before public use.
 - [ ] Keep the privacy-consent gate, YouTube Terms link, and Google Privacy Policy link accessible.
 - [ ] Do not add page injection, DOM scraping, Innertube calls, or a broad host permission.
-- [ ] Do not keep a permanent offline comment cache. Session restore may hold recent per-video results in `chrome.storage.session` until the browser closes; the Worker must not cache comment data.
-- [ ] Monitor the Google Cloud quota dashboard and aggregate Worker usage. A restored popup avoids repeating metadata and comment fetches; a fresh video's first search generally costs two units (metadata + first comment page), and each additional comment page costs one.
+- [ ] Do not keep a permanent offline comment cache. Session restore may hold recent per-video, per-channel, and per-handle results in `chrome.storage.session` until the browser closes; the Worker must not cache comment data.
+- [ ] Monitor the Google Cloud quota dashboard and aggregate Worker usage. A restored popup avoids repeating metadata and comment fetches; a fresh video's first search generally costs two units (metadata + first comment page). A fresh channel/@handle search also needs channel resolution and may add batched source-video title lookups (one unit per up to 50 IDs).
 - [ ] Apply for a YouTube API compliance audit and quota extension before a public-scale launch. The default quota is 10,000 units/day and additional quota requires an audit. See [quota and compliance audits](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits).
 - [ ] Confirm the final Chrome Web Store listing, privacy policy, attribution asset, and popup behavior against the current [YouTube Developer Policies](https://developers.google.com/youtube/terms/developer-policies), [Required Minimum Functionality](https://developers.google.com/youtube/terms/required-minimum-functionality), and [Chrome Web Store policies](https://developer.chrome.com/docs/webstore/program-policies/).
