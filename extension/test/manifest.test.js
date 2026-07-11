@@ -16,5 +16,7 @@ test("keeps the manifest popup-only and narrowly permissioned", () => {
 test("includes the required privacy links and never uses HTML comment rendering", () => {
   expect(privacyPolicy).toContain("https://www.youtube.com/t/terms");
   expect(privacyPolicy).toContain("https://policies.google.com/privacy");
+  expect(privacyPolicy).toContain("session storage");
   expect(popupSource).not.toContain("innerHTML");
+  expect(popupSource).toContain("chrome.storage.session");
 });

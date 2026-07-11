@@ -14,8 +14,8 @@ The extension is deliberately named **Comment Finder**, rather than using YouTub
 | Hosting | Cloudflare Workers | A small HTTP proxy fits the free edge offering. Bun is used for package management, builds, tests, and Wrangler commands; Workers is the deployed JavaScript runtime, not Bun. |
 | Video metadata | One `videos.list` request per open popup/video | `commentThreads.list` does not return the video title or uploader channel title. Displaying both alongside video comments is required by YouTube's Required Minimum Functionality rules. |
 | Comment rendering | Full `textDisplay`, author, likes, timestamp, and an individual comment link | Full text avoids truncation concerns and the UI uses `textContent`, never HTML injection. |
-| Caching | None | The extension holds results only in open-popup memory. The Worker does not use Cache, KV, D1, or any comment-data store. |
-| Consent | Versioned local privacy-policy acceptance | Search APIs remain inaccessible until the user accepts the policy. Only that consent version is stored in `chrome.storage.local`. |
+| Caching | Per-video session restore only | The popup restores keyword, metadata, results, and pagination from `chrome.storage.session` keyed by video ID for the current browser session. The Worker does not use Cache, KV, D1, or any comment-data store. |
+| Consent | Versioned local privacy-policy acceptance | Search APIs remain inaccessible until the user accepts the policy. Consent version stays in `chrome.storage.local`; popup session state uses `chrome.storage.session`. |
 | Abuse protection | Cloudflare Rate Limiting binding keyed by `CF-Connecting-IP` | A coarse 20-request/minute protection for an unauthenticated MVP. It is not authentication or a globally accurate quota ledger. |
 | Quota monitoring | Analytics Engine endpoint/status counters | One aggregate event per upstream API call; it records no keyword, video ID, comment, author, or IP. |
 
@@ -26,7 +26,8 @@ No UI framework, YouTube client SDK, server framework, or database is used. The 
 ```text
 Chrome MV3 popup
   activeTab → parses only the current watch URL
-  ├─ GET /yt/videos?id=VIDEO_ID          (once per popup session)
+  ├─ chrome.storage.session → restore prior state for this video ID
+  ├─ GET /yt/videos?id=VIDEO_ID          (when metadata is not already restored)
   └─ GET /yt/commentThreads?videoId=...&searchTerms=...&pageToken=...
                  │
                  ▼
@@ -48,15 +49,16 @@ Implemented now:
 
 - Video ID detection from the current `youtube.com/watch?v=…` tab.
 - Popup search, a privacy-consent gate, full comment display, and pagination.
+- Per-video popup state restore for the current browser session.
 - Video title and uploader channel title display.
 - Individual `watch?v={videoId}&lc={commentId}` links.
-- Secure Worker proxy, exact CORS, edge rate limiting, aggregate quota telemetry, and no cache.
+- Secure Worker proxy, exact CORS, edge rate limiting, aggregate quota telemetry, and no server-side cache.
 
 Deferred:
 
 - Channel/handle/legacy custom-URL search.
 - Replies.
-- Share links and offline storage.
+- Share links and permanent offline storage.
 
 When channel search is added, `/channel/UC…` can use its ID directly, `@handle` should resolve with `channels.list?forHandle=…`, and legacy `/c/*` should remain unsupported unless a reliable explicit resolution path is chosen. Channel result video titles require batched `videos.list` calls (up to 50 video IDs per request).
 
@@ -190,7 +192,7 @@ The test suite covers URL parsing, XSS-safe comment data mapping, privacy/manife
 - [ ] Replace `REPLACE_WITH_PRIVACY_CONTACT` in `extension/privacy.html` and publish the same policy at a stable public URL before public use.
 - [ ] Keep the privacy-consent gate, YouTube Terms link, and Google Privacy Policy link accessible.
 - [ ] Do not add page injection, DOM scraping, Innertube calls, or a broad host permission.
-- [ ] Do not cache public comment data. This implementation does not cache it at all.
-- [ ] Monitor the Google Cloud quota dashboard and aggregate Worker usage. Each new popup session's first search generally costs two units (metadata + first comment page); each additional comment page costs one.
+- [ ] Do not keep a permanent offline comment cache. Session restore may hold recent per-video results in `chrome.storage.session` until the browser closes; the Worker must not cache comment data.
+- [ ] Monitor the Google Cloud quota dashboard and aggregate Worker usage. A restored popup avoids repeating metadata and comment fetches; a fresh video's first search generally costs two units (metadata + first comment page), and each additional comment page costs one.
 - [ ] Apply for a YouTube API compliance audit and quota extension before a public-scale launch. The default quota is 10,000 units/day and additional quota requires an audit. See [quota and compliance audits](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits).
 - [ ] Confirm the final Chrome Web Store listing, privacy policy, attribution asset, and popup behavior against the current [YouTube Developer Policies](https://developers.google.com/youtube/terms/developer-policies), [Required Minimum Functionality](https://developers.google.com/youtube/terms/required-minimum-functionality), and [Chrome Web Store policies](https://developer.chrome.com/docs/webstore/program-policies/).

@@ -1,8 +1,9 @@
 import { ApiError, fetchVideoMetadata, searchCommentThreads } from "./api.js";
+import { PAGE_ORDER_KEY, isPageState, nextPageOrder, pageStorageKey } from "./page-state.js";
 import { apiErrorMessage, commentView, isDeferredChannelPage, relativeTimeFrom, videoIdFromUrl, videoMetadata } from "./shared.js";
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
-const PRIVACY_POLICY_VERSION = "2026-07-11";
+const PRIVACY_POLICY_VERSION = "2026-07-11-session";
 
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
@@ -23,9 +24,11 @@ const elements = {
 };
 
 const state = {
+  comments: [],
   controller: null,
   metadata: null,
   nextPageToken: null,
+  persistQueue: Promise.resolve(),
   requestSequence: 0,
   videoId: null,
 };
@@ -99,13 +102,7 @@ function actionStat(iconPath, label, countText = null, viewBox = "0 0 24 24") {
   return stat;
 }
 
-function renderComment(thread) {
-  const view = commentView(thread, state.videoId);
-
-  if (!view) {
-    return null;
-  }
-
+function renderCommentView(view) {
   const comment = document.createElement("article");
   comment.className = "comment";
 
@@ -203,34 +200,112 @@ function renderComment(thread) {
   return comment;
 }
 
-function renderPage(response, append) {
+function renderCommentViews(views, append) {
   const fragment = document.createDocumentFragment();
-  let renderedCount = 0;
-
-  for (const thread of Array.isArray(response.items) ? response.items : []) {
-    const card = renderComment(thread);
-    if (card) {
-      fragment.append(card);
-      renderedCount += 1;
-    }
+  for (const view of views) {
+    fragment.append(renderCommentView(view));
   }
 
   if (!append) {
     elements.resultList.replaceChildren();
   }
   elements.resultList.append(fragment);
+}
+
+function persistPageState() {
+  if (!state.videoId) {
+    return state.persistQueue;
+  }
+
+  const videoId = state.videoId;
+  const key = pageStorageKey(videoId);
+  const pageState = {
+    comments: state.comments,
+    keyword: elements.keyword.value,
+    metadata: state.metadata,
+    nextPageToken: state.nextPageToken,
+    status: elements.status.textContent,
+    statusState: elements.status.dataset.state ?? "",
+    updatedAt: Date.now(),
+  };
+
+  const run = async () => {
+    const stored = await chrome.storage.session.get(PAGE_ORDER_KEY);
+    const { next, removed } = nextPageOrder(stored[PAGE_ORDER_KEY], videoId);
+    await chrome.storage.session.set({ [key]: pageState, [PAGE_ORDER_KEY]: next });
+    if (removed.length > 0) {
+      await chrome.storage.session.remove(removed.map(pageStorageKey));
+    }
+  };
+
+  state.persistQueue = state.persistQueue.then(run, run);
+  return state.persistQueue;
+}
+
+function applyPageState(page) {
+  state.comments = page.comments;
+  state.metadata = page.metadata;
+  state.nextPageToken = page.nextPageToken;
+  elements.keyword.value = page.keyword;
+
+  if (state.metadata) {
+    showVideoMetadata();
+  }
+
+  if (state.comments.length > 0) {
+    renderCommentViews(state.comments, false);
+    elements.resultsSection.hidden = false;
+  } else {
+    elements.resultList.replaceChildren();
+    elements.resultsSection.hidden = true;
+  }
+
+  setStatus(page.status, page.statusState);
+  setLoadMoreVisibility();
+}
+
+async function restorePageState(videoId) {
+  const key = pageStorageKey(videoId);
+  const stored = await chrome.storage.session.get(key);
+  const page = stored[key];
+  if (!isPageState(page)) {
+    return false;
+  }
+
+  applyPageState(page);
+  return true;
+}
+
+function renderPage(response, append) {
+  const views = [];
+  for (const thread of Array.isArray(response.items) ? response.items : []) {
+    const view = commentView(thread, state.videoId);
+    if (view) {
+      views.push(view);
+    }
+  }
+
+  if (!append) {
+    state.comments = views;
+  } else {
+    state.comments.push(...views);
+  }
+
+  renderCommentViews(views, append);
 
   state.nextPageToken = typeof response.nextPageToken === "string" ? response.nextPageToken : null;
   setLoadMoreVisibility();
 
-  if (renderedCount === 0 && !append) {
+  if (views.length === 0 && !append) {
     elements.resultsSection.hidden = true;
     setStatus("No matching comments were returned for this keyword.");
+    void persistPageState();
     return;
   }
 
   elements.resultsSection.hidden = false;
   setStatus("");
+  void persistPageState();
 }
 
 function stopCurrentRequest() {
@@ -276,6 +351,10 @@ async function prefetchMetadata() {
       }
       return;
     }
+
+    if (sequence === state.requestSequence) {
+      void persistPageState();
+    }
   } catch (error) {
     if (sequence !== state.requestSequence) {
       return;
@@ -315,6 +394,7 @@ async function search(pageToken = null) {
   setStatus("");
 
   if (!pageToken) {
+    state.comments = [];
     state.nextPageToken = null;
     setLoadMoreVisibility();
     elements.resultsSection.hidden = true;
@@ -343,6 +423,7 @@ async function search(pageToken = null) {
 
     if (error instanceof ApiError || error instanceof TypeError) {
       setStatus(apiErrorMessage(error), "error");
+      void persistPageState();
       return;
     }
 
@@ -374,7 +455,10 @@ async function showApplication() {
   }
 
   setSearchControls(true);
-  void prefetchMetadata();
+  const restored = await restorePageState(state.videoId);
+  if (!restored || !state.metadata) {
+    void prefetchMetadata();
+  }
 }
 
 async function initialize() {
