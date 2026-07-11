@@ -4,13 +4,19 @@ export function videoIdFromUrl(urlString) {
   try {
     const url = new URL(urlString);
     const isYouTubeHost = ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(url.hostname);
-    const videoId = url.searchParams.get("v");
 
-    if (url.protocol !== "https:" || !isYouTubeHost || url.pathname !== "/watch" || !videoId) {
+    if (url.protocol !== "https:" || !isYouTubeHost) {
       return null;
     }
 
-    return VIDEO_ID_PATTERN.test(videoId) ? videoId : null;
+    const videoId =
+      url.pathname === "/watch"
+        ? url.searchParams.get("v")
+        : url.pathname.startsWith("/shorts/")
+          ? url.pathname.slice(8)
+          : null;
+
+    return videoId && VIDEO_ID_PATTERN.test(videoId) ? videoId : null;
   } catch (error) {
     if (error instanceof TypeError) {
       return null;

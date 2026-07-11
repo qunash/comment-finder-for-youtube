@@ -17,14 +17,23 @@ test("extracts a video ID from a supported watch URL", () => {
   expect(videoIdFromUrl(`https://m.youtube.com/watch?v=${videoId}`)).toBe(videoId);
 });
 
+test("extracts a video ID from a Shorts URL", () => {
+  expect(videoIdFromUrl(`https://www.youtube.com/shorts/${videoId}`)).toBe(videoId);
+  expect(videoIdFromUrl(`https://m.youtube.com/shorts/${videoId}`)).toBe(videoId);
+  expect(videoIdFromUrl(`https://www.youtube.com/shorts/${videoId}?feature=share`)).toBe(videoId);
+});
+
 test("rejects unsupported and malformed page URLs", () => {
   expect(videoIdFromUrl("https://www.youtube.com/@openai")).toBeNull();
   expect(videoIdFromUrl("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull();
   expect(videoIdFromUrl("https://www.youtube.com/watch?v=not-a-video-id")).toBeNull();
+  expect(videoIdFromUrl("https://www.youtube.com/shorts/not-a-video-id")).toBeNull();
+  expect(videoIdFromUrl("https://www.youtube.com/shorts/")).toBeNull();
   expect(videoIdFromUrl("not a URL")).toBeNull();
   expect(isDeferredChannelPage("https://www.youtube.com/@openai/videos")).toBe(true);
   expect(isDeferredChannelPage("https://www.youtube.com/channel/UC123")).toBe(true);
   expect(isDeferredChannelPage(`https://www.youtube.com/watch?v=${videoId}`)).toBe(false);
+  expect(isDeferredChannelPage(`https://www.youtube.com/shorts/${videoId}`)).toBe(false);
 });
 
 test("finds m:ss and h:mm:ss stamps in comment text", () => {

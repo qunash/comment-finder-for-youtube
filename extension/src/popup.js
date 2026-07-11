@@ -584,7 +584,7 @@ async function showApplication() {
     showContextMessage(
       typeof pageUrl === "string" && isDeferredChannelPage(pageUrl)
         ? "Channel search is planned next. Open a video page to search comments now."
-        : "Open a YouTube watch page, then reopen this popup.",
+        : "Open a YouTube video or Shorts page, then reopen this popup.",
     );
     return;
   }
