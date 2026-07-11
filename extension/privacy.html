@@ -5,14 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Comment Finder Privacy Policy</title>
     <style>
-      :root { color: #17222d; background: #f7f9fb; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      body { max-width: 720px; margin: 0 auto; padding: 32px 20px 48px; line-height: 1.55; }
-      h1, h2 { color: #13212a; line-height: 1.2; }
-      h1 { margin-top: 0; }
-      h2 { margin-top: 30px; font-size: 19px; }
-      a { color: #155c68; }
-      .notice { border-left: 4px solid #0f6873; padding: 10px 14px; background: #eef9fa; }
-      code { padding: 1px 4px; border-radius: 3px; background: #e9eef0; }
+      :root {
+        color-scheme: light dark;
+        --ink: #17222d;
+        --muted: #4a5a66;
+        --line: #e2e8ee;
+        --surface: #ffffff;
+        --page: #f6f8fb;
+        --accent: #0f6873;
+        --accent-soft: #eef9fa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e8edf2;
+          --muted: #a7b3c0;
+          --line: #28303a;
+          --surface: #1b2129;
+          --page: #12161b;
+          --accent: #5fb6c2;
+          --accent-soft: rgba(95, 182, 194, 0.16);
+        }
+      }
+      :root { color: var(--ink); background: var(--page); font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+      body { max-width: 720px; margin: 0 auto; padding: 40px 22px 56px; line-height: 1.6; background: var(--page); }
+      h1, h2 { color: var(--ink); line-height: 1.25; letter-spacing: -0.01em; }
+      h1 { margin: 0 0 4px; font-size: 26px; font-weight: 700; }
+      h2 { margin: 32px 0 10px; font-size: 18px; font-weight: 600; }
+      p { color: var(--muted); }
+      a { color: var(--accent); }
+      .notice { border-left: 4px solid var(--accent); padding: 12px 16px; background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--ink); }
+      code { padding: 2px 6px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); font-size: 0.92em; }
+      p:first-of-type { color: var(--muted); }
     </style>
   </head>
   <body>

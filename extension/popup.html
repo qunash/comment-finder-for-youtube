@@ -9,9 +9,12 @@
   <body>
     <main class="popup-shell">
       <header class="page-header">
-        <p class="eyebrow">Comment Finder</p>
-        <h1>Find a comment</h1>
-        <p class="subtitle">Search public comments on the video you are watching.</p>
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8.5L4 21.5V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" /></svg>
+          </span>
+          <h1>Comment Finder</h1>
+        </div>
       </header>
 
       <section id="privacy-gate" class="consent-card" aria-labelledby="consent-title" hidden>
@@ -29,42 +32,47 @@
       </section>
 
       <section id="app" hidden>
-        <section class="context-card" aria-labelledby="context-title">
-          <p id="context-title" class="context-label">Current video</p>
+        <section class="video-context" aria-live="polite">
           <p id="page-context" class="context-message">Checking the active tab…</p>
-          <dl id="video-metadata" class="video-metadata" hidden>
-            <div>
-              <dt>Video</dt>
-              <dd id="video-title"></dd>
-            </div>
-            <div>
-              <dt>Channel</dt>
-              <dd id="channel-title"></dd>
-            </div>
-          </dl>
+          <div id="video-metadata" class="video-metadata" hidden>
+            <p id="video-title" class="video-title"></p>
+            <p id="channel-title" class="channel-title"></p>
+          </div>
         </section>
 
         <form id="search-form" class="search-form">
-          <label for="keyword">Keyword or phrase</label>
+          <label class="visually-hidden" for="keyword">Keyword or phrase</label>
           <div class="search-row">
-            <input id="keyword" name="keyword" type="search" maxlength="200" autocomplete="off" placeholder="e.g. cinematography" disabled required />
-            <button id="search-button" class="button button-primary" type="submit" disabled>Search</button>
+            <span class="search-field">
+              <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="16.5" y1="16.5" x2="21" y2="21" />
+              </svg>
+              <input id="keyword" name="keyword" type="search" maxlength="200" autocomplete="off" placeholder="Search comments" disabled required />
+            </span>
+            <button id="search-button" class="button button-primary" type="submit" disabled>
+              <span class="button-label">Search</span>
+            </button>
           </div>
         </form>
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
 
-        <section id="results-section" class="results" aria-labelledby="results-title" hidden>
-          <h2 id="results-title">Matching comments</h2>
+        <section id="results-section" class="results" hidden>
           <div id="result-list" class="result-list"></div>
-          <button id="load-more" class="button button-secondary" type="button" hidden>Load more</button>
+          <button id="load-more" class="button button-secondary" type="button" hidden>
+            <span class="button-label">Load more</span>
+          </button>
         </section>
       </section>
 
       <footer class="page-footer">
         <a href="privacy.html" target="_blank" rel="noreferrer">Privacy policy</a>
         <a class="youtube-attribution" href="https://www.youtube.com/" target="_blank" rel="noreferrer">
-          <img src="assets/developed-with-youtube.png" alt="Developed with YouTube" />
+          <picture>
+            <source srcset="assets/developed-with-youtube-light.png" media="(prefers-color-scheme: dark)" />
+            <img src="assets/developed-with-youtube.png" alt="Developed with YouTube" />
+          </picture>
         </a>
       </footer>
     </main>

@@ -35,6 +35,88 @@ export function isDeferredChannelPage(urlString) {
   }
 }
 
+const AUTHOR_IMAGE_HOSTS = new Set([
+  "yt3.ggpht.com",
+  "yt3.googleusercontent.com",
+  "lh3.googleusercontent.com",
+]);
+
+function httpsYouTubeChannelUrl(urlString) {
+  if (typeof urlString !== "string") {
+    return null;
+  }
+
+  try {
+    const authorUrl = new URL(urlString);
+    const isYouTubeHost = ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(authorUrl.hostname);
+
+    if (["http:", "https:"].includes(authorUrl.protocol) && isYouTubeHost) {
+      authorUrl.protocol = "https:";
+      return authorUrl.toString();
+    }
+  } catch (error) {
+    if (!(error instanceof TypeError)) {
+      throw error;
+    }
+  }
+
+  return null;
+}
+
+function authorProfileImageUrl(urlString) {
+  if (typeof urlString !== "string") {
+    return null;
+  }
+
+  try {
+    const imageUrl = new URL(urlString);
+    if (imageUrl.protocol === "https:" && AUTHOR_IMAGE_HOSTS.has(imageUrl.hostname)) {
+      return imageUrl.toString();
+    }
+  } catch (error) {
+    if (!(error instanceof TypeError)) {
+      throw error;
+    }
+  }
+
+  return null;
+}
+
+export function relativeTimeFrom(isoDate, now = Date.now()) {
+  if (typeof isoDate !== "string") {
+    return null;
+  }
+
+  const then = Date.parse(isoDate);
+  if (Number.isNaN(then)) {
+    return null;
+  }
+
+  const seconds = Math.round((then - now) / 1000);
+  const divisions = [
+    { amount: 60, unit: "second" },
+    { amount: 60, unit: "minute" },
+    { amount: 24, unit: "hour" },
+    { amount: 7, unit: "day" },
+    { amount: 4.34524, unit: "week" },
+    { amount: 12, unit: "month" },
+    { amount: Number.POSITIVE_INFINITY, unit: "year" },
+  ];
+
+  let duration = seconds;
+  for (const division of divisions) {
+    if (Math.abs(duration) < division.amount) {
+      return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+        Math.round(duration),
+        division.unit,
+      );
+    }
+    duration /= division.amount;
+  }
+
+  throw new Error("relativeTimeFrom exhausted unit divisions");
+}
+
 export function commentView(thread, videoId) {
   const comment = thread?.snippet?.topLevelComment;
   const snippet = comment?.snippet;
@@ -43,33 +125,20 @@ export function commentView(thread, videoId) {
     return null;
   }
 
-  let authorChannelUrl = null;
-  if (typeof snippet.authorChannelUrl === "string") {
-    try {
-      const authorUrl = new URL(snippet.authorChannelUrl);
-      const isYouTubeHost = ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(authorUrl.hostname);
-
-      if (["http:", "https:"].includes(authorUrl.protocol) && isYouTubeHost) {
-        authorUrl.protocol = "https:";
-        authorChannelUrl = authorUrl.toString();
-      }
-    } catch (error) {
-      if (!(error instanceof TypeError)) {
-        throw error;
-      }
-    }
-  }
-
   const commentUrl = new URL("https://www.youtube.com/watch");
   commentUrl.searchParams.set("v", videoId);
   commentUrl.searchParams.set("lc", comment.id);
 
+  const replyCount = Number.isFinite(thread?.snippet?.totalReplyCount) ? thread.snippet.totalReplyCount : 0;
+
   return {
-    authorChannelUrl,
+    authorChannelUrl: httpsYouTubeChannelUrl(snippet.authorChannelUrl),
     authorName: typeof snippet.authorDisplayName === "string" ? snippet.authorDisplayName : "YouTube user",
+    authorProfileImageUrl: authorProfileImageUrl(snippet.authorProfileImageUrl),
     commentUrl: commentUrl.toString(),
     likeCount: Number.isFinite(snippet.likeCount) ? snippet.likeCount : 0,
     publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt : null,
+    replyCount: replyCount > 0 ? replyCount : 0,
     text: typeof snippet.textDisplay === "string" ? snippet.textDisplay : "",
   };
 }

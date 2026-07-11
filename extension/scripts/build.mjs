@@ -57,10 +57,16 @@ await Promise.all([
   Bun.write(new URL("popup.css", outputDirectory), Bun.file(new URL("popup.css", extensionDirectory))),
   Bun.write(new URL("privacy.html", outputDirectory), Bun.file(new URL("privacy.html", extensionDirectory))),
   mkdir(fileURLToPath(new URL("assets/", outputDirectory)), { recursive: true }).then(() =>
-    Bun.write(
-      new URL("assets/developed-with-youtube.png", outputDirectory),
-      Bun.file(new URL("assets/developed-with-youtube.png", extensionDirectory)),
-    ),
+    Promise.all([
+      Bun.write(
+        new URL("assets/developed-with-youtube.png", outputDirectory),
+        Bun.file(new URL("assets/developed-with-youtube.png", extensionDirectory)),
+      ),
+      Bun.write(
+        new URL("assets/developed-with-youtube-light.png", outputDirectory),
+        Bun.file(new URL("assets/developed-with-youtube-light.png", extensionDirectory)),
+      ),
+    ]),
   ),
 ]);
 
