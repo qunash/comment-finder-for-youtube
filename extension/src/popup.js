@@ -537,6 +537,7 @@ async function showApplication() {
   }
 
   setSearchControls(true);
+  elements.keyword.focus();
   const restored = await restorePageState(state.videoId);
   if (!restored || !state.metadata) {
     void prefetchMetadata();
