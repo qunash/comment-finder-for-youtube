@@ -42,7 +42,7 @@ test("forwards a fixed, encoded commentThreads request and preserves its JSON re
   expect(response.headers.get("Cache-Control")).toBe("no-store");
   expect(seenUrls).toHaveLength(1);
   expect(seenUrls[0].pathname).toBe("/youtube/v3/commentThreads");
-  expect(seenUrls[0].searchParams.get("part")).toBe("snippet");
+  expect(seenUrls[0].searchParams.get("part")).toBe("snippet,replies");
   expect(seenUrls[0].searchParams.get("maxResults")).toBe("100");
   expect(seenUrls[0].searchParams.get("order")).toBe("time");
   expect(seenUrls[0].searchParams.get("textFormat")).toBe("plainText");

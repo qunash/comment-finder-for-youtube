@@ -117,8 +117,7 @@ export function relativeTimeFrom(isoDate, now = Date.now()) {
   throw new Error("relativeTimeFrom exhausted unit divisions");
 }
 
-export function commentView(thread, videoId, videoChannelId = null) {
-  const comment = thread?.snippet?.topLevelComment;
+export function commentResourceView(comment, videoId, videoChannelId = null) {
   const snippet = comment?.snippet;
 
   if (!comment || !snippet || typeof comment.id !== "string") {
@@ -129,7 +128,6 @@ export function commentView(thread, videoId, videoChannelId = null) {
   commentUrl.searchParams.set("v", videoId);
   commentUrl.searchParams.set("lc", comment.id);
 
-  const replyCount = Number.isFinite(thread?.snippet?.totalReplyCount) ? thread.snippet.totalReplyCount : 0;
   const authorChannelId = typeof snippet.authorChannelId?.value === "string" ? snippet.authorChannelId.value : null;
   const isVideoAuthor = videoChannelId != null && videoChannelId === authorChannelId;
 
@@ -138,12 +136,39 @@ export function commentView(thread, videoId, videoChannelId = null) {
     authorName: typeof snippet.authorDisplayName === "string" ? snippet.authorDisplayName : "YouTube user",
     authorProfileImageUrl: authorProfileImageUrl(snippet.authorProfileImageUrl),
     commentUrl: commentUrl.toString(),
+    id: comment.id,
     isVideoAuthor,
     likeCount: Number.isFinite(snippet.likeCount) ? snippet.likeCount : 0,
     publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt : null,
-    replyCount: replyCount > 0 ? replyCount : 0,
     text: typeof snippet.textDisplay === "string" ? snippet.textDisplay : "",
   };
+}
+
+export function commentView(thread, videoId, videoChannelId = null) {
+  const view = commentResourceView(thread?.snippet?.topLevelComment, videoId, videoChannelId);
+  if (!view) {
+    return null;
+  }
+
+  const bundled = Array.isArray(thread?.replies?.comments) ? thread.replies.comments : null;
+  if (!bundled) {
+    return view;
+  }
+
+  const replies = [];
+  for (const item of bundled) {
+    const mapped = commentResourceView(item, videoId, videoChannelId);
+    if (mapped) {
+      replies.push(mapped);
+    }
+  }
+  if (replies.length > 0) {
+    view.replies = replies;
+    const totalReplyCount = Number.isFinite(thread?.snippet?.totalReplyCount) ? thread.snippet.totalReplyCount : 0;
+    view.hasMoreReplies = totalReplyCount > replies.length;
+  }
+
+  return view;
 }
 
 export function videoMetadata(response) {

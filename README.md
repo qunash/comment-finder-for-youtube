@@ -41,7 +41,7 @@ YouTube Data API v3
   server-side YOUTUBE_API_KEY secret
 ```
 
-The Worker returns the upstream YouTube JSON body and status unchanged, while adding exact-origin CORS and `Cache-Control: no-store`. It accepts only selection values from the extension and forces `part=snippet`, `maxResults=100`, `order=time`, and `textFormat=plainText` itself. This deliberately avoids `order=relevance`, which can return `400 processingFailure` on some videos.
+The Worker returns the upstream YouTube JSON body and status unchanged, while adding exact-origin CORS and `Cache-Control: no-store`. It accepts only selection values from the extension and forces `part=snippet,replies`, `maxResults=100`, `order=time`, and `textFormat=plainText` itself. This deliberately avoids `order=relevance`, which can return `400 processingFailure` on some videos. Matching replies bundled with search results are shown expanded; non-matching replies are ignored. When the thread has more replies than came with search, a YouTube “See full thread” link is offered.
 
 ## Scope
 
@@ -49,6 +49,7 @@ Implemented now:
 
 - Video ID detection from the current `youtube.com/watch?v=…` tab.
 - Popup search, a privacy-consent gate, full comment display, and pagination.
+- Inline matching replies from search, shown expanded, plus a YouTube “See full thread” link.
 - Per-video popup state restore for the current browser session.
 - Video title and uploader channel title display.
 - Individual `watch?v={videoId}&lc={commentId}` links.
@@ -57,7 +58,6 @@ Implemented now:
 Deferred:
 
 - Channel/handle/legacy custom-URL search.
-- Replies.
 - Share links and permanent offline storage.
 
 When channel search is added, `/channel/UC…` can use its ID directly, `@handle` should resolve with `channels.list?forHandle=…`, and legacy `/c/*` should remain unsupported unless a reliable explicit resolution path is chosen. Channel result video titles require batched `videos.list` calls (up to 50 video IDs per request).
@@ -166,8 +166,8 @@ The rate-limit binding uses namespace `1001`. Cloudflare requires this to be a p
 
 | Route | Accepted client query | Forced upstream parameters |
 | --- | --- | --- |
-| `GET /yt/commentThreads` | `videoId`, `searchTerms`, optional `pageToken` | `part=snippet`, `maxResults=100`, `order=time`, `textFormat=plainText` |
-| `GET /yt/videos` | `id` | `part=snippet` |
+| `GET /yt/commentThreads` | `videoId`, `searchTerms`, optional `pageToken` | `part=snippet,replies`, `maxResults=100`, `order=time`, `textFormat=plainText` |
+| `GET /yt/videos` | `id` | `part=snippet,statistics` |
 
 Both routes reject duplicate, unknown, malformed, and client-controlled API parameters. All `GET` and `OPTIONS` requests must have the exact configured `Origin`. CORS is a browser control rather than authentication—non-browser callers can forge an Origin header—so do not treat a static extension token as a secret. A token bundled in an extension is extractable.
 

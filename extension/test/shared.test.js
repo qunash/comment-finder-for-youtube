@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { apiErrorMessage, commentView, isDeferredChannelPage, relativeTimeFrom, videoIdFromUrl, videoMetadata } from "../src/shared.js";
+import { apiErrorMessage, commentResourceView, commentView, isDeferredChannelPage, relativeTimeFrom, videoIdFromUrl, videoMetadata } from "../src/shared.js";
 
 const videoId = "dQw4w9WgXcQ";
 
@@ -46,10 +46,10 @@ test("maps a top-level comment to a safe, complete display model", () => {
     authorName: "A commenter",
     authorProfileImageUrl: "https://yt3.ggpht.com/avatar-photo",
     commentUrl: `https://www.youtube.com/watch?v=${videoId}&lc=Ugy-comment-id`,
+    id: "Ugy-comment-id",
     isVideoAuthor: false,
     likeCount: 12,
     publishedAt: "2026-07-11T10:00:00Z",
-    replyCount: 4,
     text: "<script>not markup</script>\nFull public comment",
   });
 });
@@ -75,6 +75,108 @@ test("flags the comment as authored by the video owner when channel IDs match", 
   );
 
   expect(view.isVideoAuthor).toBe(true);
+});
+
+test("maps a reply comment resource to the same display model", () => {
+  const view = commentResourceView(
+    {
+      id: "Ugy-reply-id",
+      snippet: {
+        authorChannelId: { value: "UC_video_owner" },
+        authorChannelUrl: "https://www.youtube.com/channel/UC_video_owner",
+        authorDisplayName: "The owner",
+        authorProfileImageUrl: "https://yt3.ggpht.com/owner-photo",
+        likeCount: 3,
+        parentId: "Ugy-comment-id",
+        publishedAt: "2026-07-11T11:00:00Z",
+        textDisplay: "A reply",
+      },
+    },
+    videoId,
+    "UC_video_owner",
+  );
+
+  expect(view).toEqual({
+    authorChannelUrl: "https://www.youtube.com/channel/UC_video_owner",
+    authorName: "The owner",
+    authorProfileImageUrl: "https://yt3.ggpht.com/owner-photo",
+    commentUrl: `https://www.youtube.com/watch?v=${videoId}&lc=Ugy-reply-id`,
+    id: "Ugy-reply-id",
+    isVideoAuthor: true,
+    likeCount: 3,
+    publishedAt: "2026-07-11T11:00:00Z",
+    text: "A reply",
+  });
+});
+
+test("attaches matching bundled thread replies from search", () => {
+  const complete = commentView(
+    {
+      replies: {
+        comments: [
+          {
+            id: "Ugy-reply-1",
+            snippet: {
+              authorDisplayName: "One",
+              likeCount: 0,
+              publishedAt: "2026-07-11T11:00:00Z",
+              textDisplay: "First",
+            },
+          },
+        ],
+      },
+      snippet: {
+        totalReplyCount: 1,
+        topLevelComment: {
+          id: "Ugy-comment-id",
+          snippet: {
+            authorDisplayName: "A commenter",
+            likeCount: 0,
+            publishedAt: "2026-07-11T10:00:00Z",
+            textDisplay: "Parent",
+          },
+        },
+      },
+    },
+    videoId,
+  );
+
+  expect(complete.replies).toHaveLength(1);
+  expect(complete.hasMoreReplies).toBe(false);
+
+  const truncated = commentView(
+    {
+      replies: {
+        comments: [
+          {
+            id: "Ugy-reply-1",
+            snippet: {
+              authorDisplayName: "One",
+              likeCount: 0,
+              publishedAt: "2026-07-11T11:00:00Z",
+              textDisplay: "First",
+            },
+          },
+        ],
+      },
+      snippet: {
+        totalReplyCount: 12,
+        topLevelComment: {
+          id: "Ugy-comment-id",
+          snippet: {
+            authorDisplayName: "A commenter",
+            likeCount: 0,
+            publishedAt: "2026-07-11T10:00:00Z",
+            textDisplay: "Parent",
+          },
+        },
+      },
+    },
+    videoId,
+  );
+
+  expect(truncated.replies).toHaveLength(1);
+  expect(truncated.hasMoreReplies).toBe(true);
 });
 
 test("does not flag authorship when video or author channel ID is missing", () => {
@@ -110,7 +212,7 @@ test("rejects unsafe author image hosts and formats relative timestamps", () => 
   );
 
   expect(view.authorProfileImageUrl).toBeNull();
-  expect(view.replyCount).toBe(0);
+  expect(view.replies).toBeUndefined();
   expect(relativeTimeFrom("2026-07-11T07:00:00Z", Date.parse("2026-07-11T10:00:00Z"))).toBe(
     new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(-3, "hour"),
   );

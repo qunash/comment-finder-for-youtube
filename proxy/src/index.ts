@@ -141,7 +141,7 @@ export async function handleRequest(request: Request, env: Env, fetcher: typeof 
     const parameters: Record<string, string> = {
       maxResults: "100",
       order: "time",
-      part: "snippet",
+      part: "snippet,replies",
       searchTerms,
       textFormat: "plainText",
       videoId,
