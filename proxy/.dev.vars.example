@@ -1,0 +1,16 @@
+# Local Worker secrets for `bun run dev:proxy`.
+#
+# Setup:
+#   cp proxy/.dev.vars.example proxy/.dev.vars
+#
+# Then replace the placeholder values below. `proxy/.dev.vars` is gitignored.
+
+# Google Cloud API key restricted to YouTube Data API v3 only.
+# Keep this server-side: never put it in the extension bundle or commit it.
+YOUTUBE_API_KEY=replace_with_a_key_restricted_to_youtube_data_api_v3
+
+# Exact origin of your unpacked development extension.
+# 1. Build: EXTENSION_API_BASE_URL=http://127.0.0.1:8787 bun run build:extension
+# 2. Load `extension/dist` at chrome://extensions and copy its ID.
+# 3. Set ALLOWED_EXTENSION_ORIGIN to chrome-extension://YOUR_EXTENSION_ID
+ALLOWED_EXTENSION_ORIGIN=chrome-extension://replace_with_your_development_extension_id

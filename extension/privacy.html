@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comment Finder Privacy Policy</title>
+    <style>
+      :root { color: #17222d; background: #f7f9fb; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      body { max-width: 720px; margin: 0 auto; padding: 32px 20px 48px; line-height: 1.55; }
+      h1, h2 { color: #13212a; line-height: 1.2; }
+      h1 { margin-top: 0; }
+      h2 { margin-top: 30px; font-size: 19px; }
+      a { color: #155c68; }
+      .notice { border-left: 4px solid #0f6873; padding: 10px 14px; background: #eef9fa; }
+      code { padding: 1px 4px; border-radius: 3px; background: #e9eef0; }
+    </style>
+  </head>
+  <body>
+    <h1>Comment Finder Privacy Policy</h1>
+    <p>Effective date: July 11, 2026</p>
+    <p class="notice">
+      Before publishing, the extension owner must replace the contact placeholder below and host this same policy at a public URL for the Chrome Web Store listing.
+    </p>
+
+    <h2>What Comment Finder does</h2>
+    <p>
+      Comment Finder is a browser extension that searches public comments for the video currently open in a YouTube tab. It uses YouTube API Services and does not scrape YouTube pages or access a YouTube account.
+    </p>
+
+    <h2>Information processed</h2>
+    <p>
+      When you submit a search, the extension sends the current video ID and your keyword to the extension operator's proxy. The proxy sends those values to the YouTube Data API to retrieve matching public comments and video metadata. The proxy receives an IP address from Cloudflare for short-window rate limiting, but does not persist the IP address, keyword, video ID, comment text, or author identity in its application telemetry.
+    </p>
+    <p>
+      Search results are held only in the open popup's memory. Comment Finder does not maintain an offline comment cache, profile users, use advertising technology, or sell or share this information for advertising. Aggregate proxy telemetry records only the endpoint called and its response status so the operator can monitor API quota use.
+    </p>
+
+    <h2>Device storage</h2>
+    <p>
+      The extension stores one device-local value in Chrome storage: the version of this Privacy Policy you accepted. It does not store comments, searches, or video history. Removing the extension clears this local value.
+    </p>
+
+    <h2>Service providers and sharing</h2>
+    <p>
+      Requests are processed by Cloudflare Workers and the YouTube Data API. Those services may process request data under their own terms and privacy policies. Comment Finder does not intentionally disclose search data to other parties.
+    </p>
+
+    <h2>Your choices</h2>
+    <p>
+      You can stop all further processing by not submitting a search or by removing the extension. Because Comment Finder does not create accounts or persist search/comment data, there is no remote profile to delete. For questions about this policy, contact: <code>REPLACE_WITH_PRIVACY_CONTACT</code>.
+    </p>
+
+    <h2>Terms and external policies</h2>
+    <p>
+      By using Comment Finder, you agree to the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer">YouTube Terms of Service</a>. Comment Finder's use of information received from YouTube API Services adheres to the <a href="https://developers.google.com/youtube/terms/api-services-terms-of-service" target="_blank" rel="noreferrer">YouTube API Services Terms of Service</a> and the <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google Privacy Policy</a>.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      If this policy changes, Comment Finder will require acceptance of the new policy version before its search feature is available again.
+    </p>
+  </body>
+</html>

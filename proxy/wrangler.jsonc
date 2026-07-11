@@ -1,0 +1,23 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "comment-finder-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-22",
+  "workers_dev": true,
+  "ratelimits": [
+    {
+      "name": "SEARCH_RATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "USAGE",
+      "dataset": "comment_finder_usage"
+    }
+  ]
+}

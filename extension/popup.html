@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comment Finder</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="page-header">
+        <p class="eyebrow">Comment Finder</p>
+        <h1>Find a comment</h1>
+        <p class="subtitle">Search public comments on the video you are watching.</p>
+      </header>
+
+      <section id="privacy-gate" class="consent-card" aria-labelledby="consent-title" hidden>
+        <h2 id="consent-title">Before you search</h2>
+        <p>
+          Comment Finder uses YouTube API Services to look up public comments. Read the
+          <a href="privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a>
+          and <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer">YouTube Terms of Service</a>.
+        </p>
+        <label class="consent-choice" for="consent-checkbox">
+          <input id="consent-checkbox" type="checkbox" />
+          <span>I have read the Privacy Policy and agree to the YouTube Terms of Service.</span>
+        </label>
+        <button id="accept-consent" class="button button-primary" type="button" disabled>Continue</button>
+      </section>
+
+      <section id="app" hidden>
+        <section class="context-card" aria-labelledby="context-title">
+          <p id="context-title" class="context-label">Current video</p>
+          <p id="page-context" class="context-message">Checking the active tab…</p>
+          <dl id="video-metadata" class="video-metadata" hidden>
+            <div>
+              <dt>Video</dt>
+              <dd id="video-title"></dd>
+            </div>
+            <div>
+              <dt>Channel</dt>
+              <dd id="channel-title"></dd>
+            </div>
+          </dl>
+        </section>
+
+        <form id="search-form" class="search-form">
+          <label for="keyword">Keyword or phrase</label>
+          <div class="search-row">
+            <input id="keyword" name="keyword" type="search" maxlength="200" autocomplete="off" placeholder="e.g. cinematography" disabled required />
+            <button id="search-button" class="button button-primary" type="submit" disabled>Search</button>
+          </div>
+        </form>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <section id="results-section" class="results" aria-labelledby="results-title" hidden>
+          <h2 id="results-title">Matching comments</h2>
+          <div id="result-list" class="result-list"></div>
+          <button id="load-more" class="button button-secondary" type="button" hidden>Load more</button>
+        </section>
+      </section>
+
+      <footer class="page-footer">
+        <a href="privacy.html" target="_blank" rel="noreferrer">Privacy policy</a>
+        <a class="youtube-attribution" href="https://www.youtube.com/" target="_blank" rel="noreferrer">
+          <img src="assets/developed-with-youtube.png" alt="Developed with YouTube" />
+        </a>
+      </footer>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

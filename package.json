@@ -1,0 +1,18 @@
+{
+  "name": "comment-finder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.1.32",
+  "scripts": {
+    "build": "bun run build:extension",
+    "build:extension": "bun extension/scripts/build.mjs",
+    "dev:proxy": "WRANGLER_LOG_PATH=.wrangler/logs sh -c 'cd proxy && bunx wrangler dev --env-file .dev.vars'",
+    "deploy:proxy": "WRANGLER_LOG_PATH=.wrangler/logs bunx wrangler deploy --config proxy/wrangler.jsonc",
+    "test": "bun test",
+    "check:proxy": "WRANGLER_LOG_PATH=.wrangler/logs bunx wrangler deploy --dry-run --config proxy/wrangler.jsonc"
+  },
+  "devDependencies": {
+    "wrangler": "4.92.0"
+  }
+}
