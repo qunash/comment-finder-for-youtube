@@ -6,76 +6,55 @@ function isYouTubeHost(hostname) {
   return ["youtube.com", "www.youtube.com", "m.youtube.com"].includes(hostname);
 }
 
-export function videoIdFromUrl(urlString) {
+export function classifyPageTarget(urlString) {
+  let url;
   try {
-    const url = new URL(urlString);
-
-    if (url.protocol !== "https:" || !isYouTubeHost(url.hostname)) {
-      return null;
-    }
-
-    const videoId =
-      url.pathname === "/watch"
-        ? url.searchParams.get("v")
-        : url.pathname.startsWith("/shorts/")
-          ? url.pathname.slice(8)
-          : null;
-
-    return videoId && VIDEO_ID_PATTERN.test(videoId) ? videoId : null;
+    url = new URL(urlString);
   } catch (error) {
-    if (error instanceof TypeError) {
-      return null;
+    if (!(error instanceof TypeError)) {
+      throw error;
     }
-
-    throw error;
+    return { kind: "none" };
   }
-}
 
-export function pageTargetFromUrl(urlString) {
-  const videoId = videoIdFromUrl(urlString);
-  if (videoId) {
+  if (url.protocol !== "https:" || !isYouTubeHost(url.hostname)) {
+    return { kind: "none" };
+  }
+
+  const videoId =
+    url.pathname === "/watch"
+      ? url.searchParams.get("v")
+      : url.pathname.startsWith("/shorts/")
+        ? url.pathname.slice(8)
+        : null;
+  if (videoId && VIDEO_ID_PATTERN.test(videoId)) {
     return { kind: "video", videoId };
   }
 
-  try {
-    const url = new URL(urlString);
-    if (url.protocol !== "https:" || !isYouTubeHost(url.hostname)) {
-      return null;
-    }
-
-    const handleMatch = url.pathname.match(/^\/@([^/]+)/);
-    if (handleMatch) {
-      const handle = handleMatch[1];
-      return HANDLE_PATTERN.test(handle) ? { kind: "handle", handle } : null;
-    }
-
-    const channelMatch = url.pathname.match(/^\/channel\/([^/]+)/);
-    if (channelMatch) {
-      const channelId = channelMatch[1];
-      return CHANNEL_ID_PATTERN.test(channelId) ? { kind: "channel", channelId } : null;
-    }
-
-    return null;
-  } catch (error) {
-    if (error instanceof TypeError) {
-      return null;
-    }
-
-    throw error;
+  const handleMatch = url.pathname.match(/^\/@([^/]+)/);
+  if (handleMatch) {
+    return HANDLE_PATTERN.test(handleMatch[1])
+      ? { kind: "handle", handle: handleMatch[1] }
+      : { kind: "youtube-other" };
   }
+
+  const channelMatch = url.pathname.match(/^\/channel\/([^/]+)/);
+  if (channelMatch) {
+    return CHANNEL_ID_PATTERN.test(channelMatch[1])
+      ? { kind: "channel", channelId: channelMatch[1] }
+      : { kind: "youtube-other" };
+  }
+
+  if (/^\/c\//.test(url.pathname)) {
+    return { kind: "legacy-channel" };
+  }
+
+  return { kind: "youtube-other" };
 }
 
-export function isUnsupportedChannelPage(urlString) {
-  try {
-    const url = new URL(urlString);
-    return url.protocol === "https:" && isYouTubeHost(url.hostname) && /^\/c\//.test(url.pathname);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      return false;
-    }
-
-    throw error;
-  }
+export function videoIdFromUrl(urlString) {
+  const result = classifyPageTarget(urlString);
+  return result.kind === "video" ? result.videoId : null;
 }
 
 const AUTHOR_IMAGE_HOSTS = new Set([

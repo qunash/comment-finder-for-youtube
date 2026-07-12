@@ -4,8 +4,7 @@ import {
   channelMetadata,
   commentResourceView,
   commentView,
-  isUnsupportedChannelPage,
-  pageTargetFromUrl,
+  classifyPageTarget,
   relativeTimeFrom,
   timestampMatches,
   videoIdFromUrl,
@@ -27,27 +26,28 @@ test("extracts a video ID from a Shorts URL", () => {
   expect(videoIdFromUrl(`https://www.youtube.com/shorts/${videoId}?feature=share`)).toBe(videoId);
 });
 
-test("parses video, channel, and handle page targets", () => {
-  expect(pageTargetFromUrl(`https://www.youtube.com/watch?v=${videoId}`)).toEqual({ kind: "video", videoId });
-  expect(pageTargetFromUrl(`https://www.youtube.com/shorts/${videoId}`)).toEqual({ kind: "video", videoId });
-  expect(pageTargetFromUrl(`https://www.youtube.com/channel/${channelId}/videos`)).toEqual({ kind: "channel", channelId });
-  expect(pageTargetFromUrl("https://www.youtube.com/@openai/videos")).toEqual({ kind: "handle", handle: "openai" });
-  expect(pageTargetFromUrl("https://m.youtube.com/@Some_Handle")).toEqual({ kind: "handle", handle: "Some_Handle" });
+test("classifies video, channel, handle, and legacy page targets", () => {
+  expect(classifyPageTarget(`https://www.youtube.com/watch?v=${videoId}`)).toEqual({ kind: "video", videoId });
+  expect(classifyPageTarget(`https://www.youtube.com/shorts/${videoId}`)).toEqual({ kind: "video", videoId });
+  expect(classifyPageTarget(`https://www.youtube.com/channel/${channelId}/videos`)).toEqual({ kind: "channel", channelId });
+  expect(classifyPageTarget("https://www.youtube.com/@openai/videos")).toEqual({ kind: "handle", handle: "openai" });
+  expect(classifyPageTarget("https://m.youtube.com/@Some_Handle")).toEqual({ kind: "handle", handle: "Some_Handle" });
+  expect(classifyPageTarget("https://www.youtube.com/c/legacy")).toEqual({ kind: "legacy-channel" });
 });
 
-test("rejects unsupported and malformed page URLs", () => {
+test("classifies non-searchable and malformed page URLs", () => {
   expect(videoIdFromUrl("https://www.youtube.com/@openai")).toBeNull();
   expect(videoIdFromUrl("https://example.com/watch?v=dQw4w9WgXcQ")).toBeNull();
   expect(videoIdFromUrl("https://www.youtube.com/watch?v=not-a-video-id")).toBeNull();
   expect(videoIdFromUrl("https://www.youtube.com/shorts/not-a-video-id")).toBeNull();
   expect(videoIdFromUrl("https://www.youtube.com/shorts/")).toBeNull();
   expect(videoIdFromUrl("not a URL")).toBeNull();
-  expect(pageTargetFromUrl("https://www.youtube.com/c/legacy")).toBeNull();
-  expect(pageTargetFromUrl("https://www.youtube.com/channel/not-a-channel-id")).toBeNull();
-  expect(pageTargetFromUrl("https://www.youtube.com/@ab")).toBeNull();
-  expect(isUnsupportedChannelPage("https://www.youtube.com/c/legacy")).toBe(true);
-  expect(isUnsupportedChannelPage(`https://www.youtube.com/channel/${channelId}`)).toBe(false);
-  expect(isUnsupportedChannelPage(`https://www.youtube.com/watch?v=${videoId}`)).toBe(false);
+
+  expect(classifyPageTarget("https://www.youtube.com/channel/not-a-channel-id")).toEqual({ kind: "youtube-other" });
+  expect(classifyPageTarget("https://www.youtube.com/@ab")).toEqual({ kind: "youtube-other" });
+  expect(classifyPageTarget("https://www.youtube.com/")).toEqual({ kind: "youtube-other" });
+  expect(classifyPageTarget("https://example.com/watch?v=dQw4w9WgXcQ")).toEqual({ kind: "none" });
+  expect(classifyPageTarget("not a URL")).toEqual({ kind: "none" });
 });
 
 test("finds m:ss and h:mm:ss stamps in comment text", () => {
