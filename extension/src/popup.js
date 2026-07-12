@@ -34,6 +34,7 @@ const elements = {
   loadMore: document.querySelector("#load-more"),
   pageContext: document.querySelector("#page-context"),
   pageHeader: document.querySelector(".page-header"),
+  popupShell: document.querySelector(".popup-shell"),
   privacyGate: document.querySelector("#privacy-gate"),
   resultList: document.querySelector("#result-list"),
   resultsSection: document.querySelector("#results-section"),
@@ -718,7 +719,7 @@ async function renderPage(response, append, sequence, signal) {
     elements.resultsSection.hidden = true;
     setStatus("No matching comments were returned for this keyword.");
     void persistPageState();
-    window.scrollTo(0, 0);
+    elements.popupShell.scrollTo(0, 0);
     return;
   }
 
@@ -727,7 +728,7 @@ async function renderPage(response, append, sequence, signal) {
   setStatus("");
   void persistPageState();
   if (!append) {
-    window.scrollTo(0, 0);
+    elements.popupShell.scrollTo(0, 0);
   }
 }
 
@@ -893,36 +894,24 @@ async function search(pageToken = null) {
   }
 }
 
-function documentOffsetTop(el) {
-  let top = 0;
-  for (let node = el; node; node = node.offsetParent) {
-    top += node.offsetTop;
-  }
-  return top;
-}
-
 function setupStickyChrome() {
   const header = elements.pageHeader;
   const aside = elements.stickyAside;
-  if (!header || !aside) {
+  const scroller = elements.popupShell;
+  if (!header || !aside || !scroller) {
     return;
   }
-
-  const setHeaderHeight = () => {
-    document.documentElement.style.setProperty("--header-height", `${header.offsetHeight}px`);
-  };
 
   let asideHeight = 0;
   let minTranslate = 0;
   let stickyStartY = 0;
   let translate = 0;
-  let lastY = window.scrollY;
+  let lastY = scroller.scrollTop;
 
   const measure = () => {
-    setHeaderHeight();
     asideHeight = aside.offsetHeight;
     minTranslate = -(asideHeight + 12);
-    stickyStartY = documentOffsetTop(aside) - header.offsetHeight;
+    stickyStartY = aside.offsetTop;
     if (translate < minTranslate) translate = minTranslate;
     if (translate > 0) translate = 0;
   };
@@ -931,22 +920,19 @@ function setupStickyChrome() {
     aside.style.transform = translate !== 0 ? `translateY(${translate}px)` : "";
   };
 
-  setHeaderHeight();
-
   const resizeObserver = new ResizeObserver(() => {
     measure();
     apply();
   });
   resizeObserver.observe(aside);
-  resizeObserver.observe(header);
 
   window.addEventListener("resize", () => {
     measure();
     apply();
   }, { passive: true });
 
-  window.addEventListener("scroll", () => {
-    const y = window.scrollY;
+  scroller.addEventListener("scroll", () => {
+    const y = scroller.scrollTop;
     const delta = y - lastY;
     lastY = y;
 
