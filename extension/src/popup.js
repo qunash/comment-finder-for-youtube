@@ -820,7 +820,6 @@ async function prefetchMetadata() {
 async function search(pageToken = null) {
   const searchTerms = elements.keyword.value.trim();
   if (!searchTerms) {
-    setStatus("Enter a keyword or phrase to search.", "error");
     elements.keyword.focus();
     return;
   }
