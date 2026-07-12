@@ -710,6 +710,10 @@ a:focus-visible,
   margin-top: 4px;
 }
 
+.comment-avatar-link {
+  align-self: start;
+}
+
 .comment-avatar,
 .comment-avatar-fallback {
   width: 40px;

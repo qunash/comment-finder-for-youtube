@@ -401,6 +401,7 @@ function renderCommentView(view, query, options = {}) {
 
   if (view.authorProfileImageUrl) {
     const avatar = document.createElement(view.authorChannelUrl ? "a" : "span");
+    avatar.className = "comment-avatar-link";
     if (view.authorChannelUrl) {
       avatar.href = view.authorChannelUrl;
       avatar.target = "_blank";
