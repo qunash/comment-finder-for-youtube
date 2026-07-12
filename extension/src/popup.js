@@ -13,7 +13,7 @@ import {
 } from "./shared.js";
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
-const PRIVACY_POLICY_VERSION = "2026-07-12-channel";
+const PRIVACY_POLICY_VERSION = "2026-07-12-declarative";
 const VIDEO_TITLE_BATCH_SIZE = 50;
 
 const elements = {

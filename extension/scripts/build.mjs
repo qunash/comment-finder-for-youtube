@@ -34,7 +34,10 @@ const manifestTemplate = JSON.parse(await readFile(new URL("manifest.template.js
 manifestTemplate.host_permissions = [hostPermission];
 
 const bundle = await Bun.build({
-  entrypoints: [fileURLToPath(new URL("src/popup.js", extensionDirectory))],
+  entrypoints: [
+    fileURLToPath(new URL("src/popup.js", extensionDirectory)),
+    fileURLToPath(new URL("src/background.js", extensionDirectory)),
+  ],
   outdir: outputPath,
   format: "esm",
   target: "browser",
@@ -51,22 +54,30 @@ if (!bundle.success) {
   throw new Error("Extension bundle failed.");
 }
 
+const assetNames = [
+  "developed-with-youtube.png",
+  "developed-with-youtube-light.png",
+  "icon-active-16.png",
+  "icon-active-32.png",
+  "icon-active-48.png",
+  "icon-active-128.png",
+  "icon-inactive-16.png",
+  "icon-inactive-32.png",
+  "icon-inactive-48.png",
+  "icon-inactive-128.png",
+];
+
 await Promise.all([
   Bun.write(new URL("manifest.json", outputDirectory), `${JSON.stringify(manifestTemplate, null, 2)}\n`),
   Bun.write(new URL("popup.html", outputDirectory), Bun.file(new URL("popup.html", extensionDirectory))),
   Bun.write(new URL("popup.css", outputDirectory), Bun.file(new URL("popup.css", extensionDirectory))),
   Bun.write(new URL("privacy.html", outputDirectory), Bun.file(new URL("privacy.html", extensionDirectory))),
   mkdir(fileURLToPath(new URL("assets/", outputDirectory)), { recursive: true }).then(() =>
-    Promise.all([
-      Bun.write(
-        new URL("assets/developed-with-youtube.png", outputDirectory),
-        Bun.file(new URL("assets/developed-with-youtube.png", extensionDirectory)),
+    Promise.all(
+      assetNames.map((name) =>
+        Bun.write(new URL(`assets/${name}`, outputDirectory), Bun.file(new URL(`assets/${name}`, extensionDirectory))),
       ),
-      Bun.write(
-        new URL("assets/developed-with-youtube-light.png", outputDirectory),
-        Bun.file(new URL("assets/developed-with-youtube-light.png", extensionDirectory)),
-      ),
-    ]),
+    ),
   ),
 ]);
 

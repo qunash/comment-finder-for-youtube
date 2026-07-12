@@ -8,7 +8,7 @@ The extension is deliberately named **Comment Finder**, rather than using YouTub
 
 | Concern | Decision | Why |
 | --- | --- | --- |
-| Extension UI | MV3 action popup only | No page injection, content script, DOM scraping, or YouTube UI modification. `activeTab` reads only the invoked tab URL. |
+| Extension UI | MV3 action popup only | No page injection, content script, DOM scraping, or YouTube UI modification. A `declarativeContent` rule swaps the toolbar icon (active red / inactive gray) from a page-URL match evaluated by the browser; the extension reads no tab URL for the icon. `activeTab` gates popup access to the invoked tab. |
 | Current page | Watch, Shorts, `/channel/UC…`, or `@handle` | Video search uses `videoId`. Channel search uses `allThreadsRelatedToChannelId`. Legacy `/c/` custom URLs stay unsupported. |
 | API key | Cloudflare Worker secret | The extension never receives the key. |
 | Hosting | Cloudflare Workers | A small HTTP proxy fits the free edge offering. Bun is used for package management, builds, tests, and Wrangler commands; Workers is the deployed JavaScript runtime, not Bun. |
@@ -26,20 +26,22 @@ No UI framework, YouTube client SDK, server framework, or database is used. The 
 ## Architecture
 
 ```text
-Chrome MV3 popup
-  activeTab → parses watch, Shorts, /channel/UC…, or @handle URL
-  ├─ chrome.storage.session → restore prior state for this video/channel/handle
-  ├─ GET /yt/videos?id=VIDEO_ID[,…]     (video metadata or channel source titles)
-  ├─ GET /yt/channels?id=…|forHandle=…  (channel pages)
-  └─ GET /yt/commentThreads?videoId=…|channelId=…&searchTerms=…&pageToken=…
-                 │
-                 ▼
+Chrome MV3
+  background service worker → declarativeContent page-URL match → active/inactive toolbar icon
+  action popup (activeTab)
+    parses watch, Shorts, /channel/UC…, or @handle URL
+    ├─ chrome.storage.session → restore prior state for this video/channel/handle
+    ├─ GET /yt/videos?id=VIDEO_ID[,…]     (video metadata or channel source titles)
+    ├─ GET /yt/channels?id=…|forHandle=…  (channel pages)
+    └─ GET /yt/commentThreads?videoId=…|channelId=…&searchTerms=…&pageToken=…
+                   │
+                   ▼
 Cloudflare Worker
   exact chrome-extension://<id> CORS gate
   strict parameter allow-list + 20/min edge rate limit
   aggregate endpoint/status telemetry only
-                 │
-                 ▼
+                   │
+                   ▼
 YouTube Data API v3
   server-side YOUTUBE_API_KEY secret
 ```
@@ -52,6 +54,7 @@ Implemented now:
 
 - Video ID detection from the current `youtube.com/watch?v=…` or `/shorts/…` tab.
 - Channel ID detection from `/channel/UC…` and handle resolution from `@handle` via `channels.list?forHandle=…`.
+- Active (red) / inactive (gray) toolbar icons based on whether the current tab is a supported page.
 - Popup search, a privacy-consent gate, full comment display, and pagination.
 - Inline matching replies from search, shown expanded, plus a YouTube “See full thread” link.
 - Per-video, per-channel, and per-handle popup state restore for the current browser session.
@@ -73,9 +76,9 @@ comment-finder/
 │   ├── manifest.template.json    # Build-time API-origin substitution
 │   ├── popup.html / popup.css
 │   ├── privacy.html
-│   ├── assets/                   # Official, unmodified attribution asset
+│   ├── assets/                   # Toolbar icons + YouTube attribution PNGs
 │   ├── scripts/build.mjs
-│   ├── src/
+│   ├── src/                      # popup.js, background.js (icon state), shared helpers
 │   └── test/
 ├── proxy/
 │   ├── .dev.vars.example
