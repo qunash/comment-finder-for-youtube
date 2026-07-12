@@ -3,9 +3,8 @@ import { PAGE_ORDER_KEY, isPageState, nextPageOrder, pageStorageKey, pageTargetK
 import {
   apiErrorMessage,
   channelMetadata,
+  classifyPageTarget,
   commentView,
-  isUnsupportedChannelPage,
-  pageTargetFromUrl,
   relativeTimeFrom,
   timestampMatches,
   videoMetadata,
@@ -19,6 +18,7 @@ const VIDEO_TITLE_BATCH_SIZE = 50;
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
   app: document.querySelector("#app"),
+  brand: document.querySelector(".brand"),
   channelAvatar: document.querySelector("#channel-avatar"),
   channelSubscriberCount: document.querySelector("#channel-subscriber-count"),
   channelSubscriberCountValue: document.querySelector("#channel-subscriber-count-value"),
@@ -27,7 +27,10 @@ const elements = {
   channelVideoCountValue: document.querySelector("#channel-video-count-value"),
   consentCheckbox: document.querySelector("#consent-checkbox"),
   clearKeyword: document.querySelector("#clear-keyword"),
+  emptyState: document.querySelector("#empty-state"),
+  emptyStateCta: document.querySelector(".empty-state-cta"),
   keyword: document.querySelector("#keyword"),
+  legacyChannelNote: document.querySelector("#legacy-channel-note"),
   loadMore: document.querySelector("#load-more"),
   pageContext: document.querySelector("#page-context"),
   pageHeader: document.querySelector(".page-header"),
@@ -631,17 +634,24 @@ async function showApplication() {
 
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const pageUrl = typeof tab?.url === "string" ? tab.url : null;
-  const rawTarget = pageUrl ? pageTargetFromUrl(pageUrl) : null;
+  const classification = pageUrl ? classifyPageTarget(pageUrl) : { kind: "none" };
+  const rawTarget =
+    classification.kind === "video" || classification.kind === "channel" || classification.kind === "handle"
+      ? classification
+      : null;
 
   if (!rawTarget) {
-    setSearchControls(false);
-    showContextMessage(
-      pageUrl && isUnsupportedChannelPage(pageUrl)
-        ? "Legacy /c/ channel URLs are not supported. Open a @handle, /channel/…, video, or Shorts page."
-        : "Open a YouTube video, Shorts, @handle, or channel page, then reopen this popup.",
-    );
+    elements.stickyAside.hidden = true;
+    elements.brand.style.visibility = "hidden";
+    elements.legacyChannelNote.hidden = classification.kind !== "legacy-channel";
+    elements.emptyStateCta.hidden = classification.kind !== "none";
+    elements.emptyState.hidden = false;
     return;
   }
+
+  elements.brand.style.visibility = "";
+  elements.emptyState.hidden = true;
+  elements.stickyAside.hidden = false;
 
   state.target = rawTarget;
   setSearchControls(true);

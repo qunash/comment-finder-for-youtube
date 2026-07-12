@@ -5,10 +5,6 @@ const ACTIVE_ICONS = {
   128: "assets/icon-active-128.png",
 };
 
-// Mirrors the YouTube watch, Shorts, /channel/ and @handle paths that
-// pageTargetFromUrl treats as searchable targets. declarativeContent matches
-// this in the browser without exposing tab URLs to the service worker, so the
-// extension does not need the "tabs" permission to switch its toolbar icon.
 const SUPPORTED_YOUTUBE_URL_PATTERN = "^https://(www\\.|m\\.)?youtube\\.com/(watch|shorts/|channel/|@)";
 
 async function registerIconRules() {
