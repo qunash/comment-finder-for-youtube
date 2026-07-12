@@ -129,18 +129,15 @@ a {
 .brand-mark {
   display: grid;
   place-items: center;
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
-  border-radius: 9px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #000));
-  box-shadow: var(--shadow-sm);
 }
 
-.brand-mark svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
+.brand-mark img {
+  display: block;
+  width: 30px;
+  height: 30px;
 }
 
 .page-header h1 {
