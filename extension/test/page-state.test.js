@@ -1,14 +1,16 @@
 import { expect, test } from "bun:test";
 import {
   MAX_PAGE_STATES,
+  METADATA_CACHE_TTL_MS,
   PAGE_KEY_PREFIX,
+  hasFreshMetadata,
   isPageState,
   nextPageOrder,
   pageStorageKey,
   pageTargetKey,
 } from "../src/page-state.js";
 
-test("builds per-target storage keys and accepts settled page state", () => {
+test("builds per-target storage keys and accepts a loading page state", () => {
   expect(pageTargetKey({ kind: "video", videoId: "dQw4w9WgXcQ" })).toBe("video:dQw4w9WgXcQ");
   expect(pageTargetKey({ kind: "channel", channelId: "UC_x5XG1OV2P6uZZ5FSM9Ttw" })).toBe(
     "channel:UC_x5XG1OV2P6uZZ5FSM9Ttw",
@@ -20,15 +22,27 @@ test("builds per-target storage keys and accepts settled page state", () => {
       comments: [],
       keyword: "hello",
       metadata: { channelId: "UC_x5XG1OV2P6uZZ5FSM9Ttw", title: "OpenAI" },
+      metadataUpdatedAt: 1,
       nextPageToken: null,
-      status: "",
-      statusState: "",
+      status: "Searching comments…",
+      statusState: "loading",
       updatedAt: 1,
       videoTitles: { dQw4w9WgXcQ: "Example" },
     }),
   ).toBe(true);
   expect(isPageState({ keyword: "hello" })).toBe(false);
   expect(isPageState(null)).toBe(false);
+});
+
+test("treats metadata as fresh for five minutes", () => {
+  const now = 1_000_000;
+  const page = { metadata: { title: "Example" }, metadataUpdatedAt: now };
+
+  expect(hasFreshMetadata(page, now + METADATA_CACHE_TTL_MS - 1)).toBe(true);
+  expect(hasFreshMetadata(page, now + METADATA_CACHE_TTL_MS)).toBe(false);
+  expect(hasFreshMetadata({ metadata: page.metadata }, now)).toBe(false);
+  expect(hasFreshMetadata({ metadata: null, metadataUpdatedAt: now }, now)).toBe(false);
+  expect(hasFreshMetadata({ ...page, metadataUpdatedAt: now + 1 }, now)).toBe(false);
 });
 
 test("moves a target to the front of the order and drops the oldest keys", () => {

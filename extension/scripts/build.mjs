@@ -31,7 +31,12 @@ await rm(outputPath, { recursive: true, force: true });
 await mkdir(outputPath, { recursive: true });
 
 const manifestTemplate = JSON.parse(await readFile(new URL("manifest.template.json", extensionDirectory), "utf8"));
-manifestTemplate.host_permissions = [hostPermission];
+manifestTemplate.host_permissions = (manifestTemplate.host_permissions ?? []).map((permission) =>
+  permission === "__API_ORIGIN__/*" ? hostPermission : permission,
+);
+if (!manifestTemplate.host_permissions.includes(hostPermission)) {
+  throw new Error("manifest.template.json must list __API_ORIGIN__/* in host_permissions.");
+}
 
 const bundle = await Bun.build({
   entrypoints: [
@@ -67,9 +72,18 @@ const assetNames = [
   "icon-inactive-128.png",
 ];
 
+const popupHtml = await readFile(new URL("popup.html", extensionDirectory), "utf8");
+if (!popupHtml.includes("<body>")) {
+  throw new Error("popup.html must contain a plain <body> tag so the side panel shell can be derived.");
+}
+// Same document as the popup, with a body class so CSS/JS can expand layout and
+// hide the “open side panel” control when already docked.
+const sidepanelHtml = popupHtml.replace("<body>", '<body class="is-side-panel">');
+
 await Promise.all([
   Bun.write(new URL("manifest.json", outputDirectory), `${JSON.stringify(manifestTemplate, null, 2)}\n`),
-  Bun.write(new URL("popup.html", outputDirectory), Bun.file(new URL("popup.html", extensionDirectory))),
+  Bun.write(new URL("popup.html", outputDirectory), popupHtml),
+  Bun.write(new URL("sidepanel.html", outputDirectory), sidepanelHtml),
   Bun.write(new URL("popup.css", outputDirectory), Bun.file(new URL("popup.css", extensionDirectory))),
   Bun.write(new URL("privacy.html", outputDirectory), Bun.file(new URL("privacy.html", extensionDirectory))),
   mkdir(fileURLToPath(new URL("assets/", outputDirectory)), { recursive: true }).then(() =>

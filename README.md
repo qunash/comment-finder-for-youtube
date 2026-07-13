@@ -1,6 +1,6 @@
 # Comment Finder
 
-Comment Finder is a popup-only Chrome extension for searching public comments on the current YouTube video or channel. It uses the YouTube Data API v3 through a Cloudflare Workers proxy, keeping the API key out of the extension bundle.
+Comment Finder is a Chrome extension for searching public comments on the current YouTube video or channel. The default UI is the toolbar popup; an optional browser side panel is available from a header control or the Alt+Shift+C hotkey (Option+Shift+C on Mac). It uses the YouTube Data API v3 through a Cloudflare Workers proxy, keeping the API key out of the extension bundle.
 
 The extension is deliberately named **Comment Finder**, rather than using YouTube in its product name. YouTube's branding rules prohibit using “YouTube”, “YT”, or a variant in an application's overall name. The bundled, unmodified “Developed with YouTube” asset links to YouTube instead. See the [branding guidelines](https://developers.google.com/youtube/terms/branding-guidelines).
 
@@ -8,15 +8,15 @@ The extension is deliberately named **Comment Finder**, rather than using YouTub
 
 | Concern | Decision | Why |
 | --- | --- | --- |
-| Extension UI | MV3 action popup only | No page injection, content script, DOM scraping, or YouTube UI modification. A `declarativeContent` rule swaps the toolbar icon (active red / inactive gray) from a page-URL match evaluated by the browser; the extension reads no tab URL for the icon. `activeTab` gates popup access to the invoked tab. |
+| Extension UI | MV3 action popup + optional side panel | No page injection, content script, DOM scraping, or YouTube UI modification. Toolbar click opens the popup; a header button or `Alt+Shift+C` (`Option+Shift+C` on Mac) toggles the same UI in a window-scoped Chrome side panel (`sidepanel.html`, derived at build time). The side panel follows tab switches and YouTube SPA navigations. YouTube page URLs are readable via YouTube `host_permissions` (not broad `tabs`). A `declarativeContent` rule swaps the toolbar icon (active red / inactive gray) from a page-URL match evaluated by the browser. |
 | Current page | Watch, Shorts, `/channel/UC…`, or `@handle` | Video search uses `videoId`. Channel search uses `allThreadsRelatedToChannelId`. Legacy `/c/` custom URLs stay unsupported. |
 | API key | Cloudflare Worker secret | The extension never receives the key. |
 | Hosting | Cloudflare Workers | A small HTTP proxy fits the free edge offering. Bun is used for package management, builds, tests, and Wrangler commands; Workers is the deployed JavaScript runtime, not Bun. |
-| Video metadata | One `videos.list` request per open popup/video | `commentThreads.list` does not return the video title or uploader channel title. Displaying both alongside video comments is required by YouTube's Required Minimum Functionality rules. |
+| Video metadata | Background `videos.list` request with a five-minute per-video cache | `commentThreads.list` does not return the video title or uploader channel title. Displaying both alongside video comments is required by YouTube's Required Minimum Functionality rules. Popup/sidebar opens share an in-flight request, and stale metadata refreshes without discarding restored results. |
 | Channel metadata | `channels.list` by `id` or `forHandle` | Handle pages resolve to a channel ID before search and session restore. |
 | Channel result titles | Batched `videos.list` (up to 50 IDs) | Channel comment threads include `snippet.videoId` but not the source video title. |
 | Comment rendering | Full `textOriginal`, author, likes, published time, and an individual comment link | Plain text avoids HTML injection; in-comment `m:ss` / `h:mm:ss` stamps open the watch URL at that time in a new tab. |
-| Caching | Per-target session restore only | The popup restores keyword, metadata, results, and pagination from `chrome.storage.session` keyed by the current page identity (`video:…`, `channel:…`, or `handle:…`) for the browser session. Handle pages resolve to a channel ID only on a cache miss. The Worker does not use Cache, KV, D1, or any comment-data store. |
+| Caching | Per-target session restore with five-minute metadata freshness | The popup restores keyword, metadata, results, and pagination from `chrome.storage.session` keyed by the current page identity (`video:…`, `channel:…`, or `handle:…`) for the browser session. Metadata older than five minutes is refreshed by the background service worker; simultaneous popup, side-panel, and search requests share the same fetch. The Worker does not use Cache, KV, D1, or any comment-data store. |
 | Consent | Versioned local privacy-policy acceptance | Search APIs remain inaccessible until the user accepts the policy. Consent version stays in `chrome.storage.local`; popup session state uses `chrome.storage.session`. |
 | Abuse protection | Cloudflare Rate Limiting binding keyed by `CF-Connecting-IP` | A coarse 20-request/minute protection for an unauthenticated MVP. It is not authentication or a globally accurate quota ledger. |
 | Quota monitoring | Analytics Engine endpoint/status counters | One aggregate event per upstream API call; it records no keyword, video ID, comment, author, or IP. |
@@ -28,7 +28,8 @@ No UI framework, YouTube client SDK, server framework, or database is used. The 
 ```text
 Chrome MV3
   background service worker → declarativeContent page-URL match → active/inactive toolbar icon
-  action popup (activeTab)
+                          └─ commands.open-side-panel (Alt+Shift+C / Option+Shift+C on Mac) → chrome.sidePanel.open or close
+  action popup (activeTab)  or  side panel (same UI, full height)
     parses watch, Shorts, /channel/UC…, or @handle URL
     ├─ chrome.storage.session → restore prior state for this video/channel/handle
     ├─ GET /yt/videos?id=VIDEO_ID[,…]     (video metadata or channel source titles)
@@ -55,7 +56,8 @@ Implemented now:
 - Video ID detection from the current `youtube.com/watch?v=…` or `/shorts/…` tab.
 - Channel ID detection from `/channel/UC…` and handle resolution from `@handle` via `channels.list?forHandle=…`.
 - Active (red) / inactive (gray) toolbar icons based on whether the current tab is a supported page.
-- Popup search, a privacy-consent gate, full comment display, and pagination.
+- Popup and side-panel search, a privacy-consent gate, full comment display, and pagination.
+- Side panel toggled from the popup header button or Alt+Shift+C (Option+Shift+C on Mac), rebindable in chrome://extensions/shortcuts.
 - Inline matching replies from search, shown expanded, plus a YouTube “See full thread” link.
 - Per-video, per-channel, and per-handle popup state restore for the current browser session.
 - Video title and uploader channel title display; channel title (and handle when available) for channel pages.

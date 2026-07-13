@@ -52,13 +52,13 @@
 
     <h2>Information processed</h2>
     <p>
-      Comment Finder reads the URL of the active tab only when you open its popup, to identify the current video or channel for a search. The toolbar icon (active on supported YouTube watch, Shorts, channel, and handle pages, inactive elsewhere) is swapped by the browser from a declarative URL match, so the extension does not read tab URLs to change its icon. The URL stays on your device and is not sent to the proxy except as the video ID, channel ID, or handle needed for a search you submit.
+      Comment Finder reads the URL of the active tab when you open its popup or side panel, and while the side panel stays open it may re-read the active tab when you switch tabs or navigate on YouTube, so the panel can show the correct video or channel. URL access is limited to YouTube pages the extension is allowed to see (and the tab you invoke the extension on). The toolbar icon (active on supported YouTube watch, Shorts, channel, and handle pages, inactive elsewhere) is swapped by the browser from a declarative URL match, so the extension does not read tab URLs to change its icon. The URL stays on your device and is not sent to the proxy except as the video ID, channel ID, or handle needed for a search you submit.
     </p>
     <p>
       When you submit a search, the extension sends the current video ID or channel ID (resolved from a channel URL or @handle when needed) and your keyword to the extension operator's proxy. The proxy sends those values to the YouTube Data API to retrieve matching public comments and video or channel metadata. For channel searches, the proxy may also request titles for the videos that contain matching comments. The proxy receives an IP address from Cloudflare for short-window rate limiting, but does not persist the IP address, keyword, video ID, channel ID, handle, comment text, or author identity in its application telemetry.
     </p>
     <p>
-      Search results stay on your device for the current browser session so the popup can restore them when reopened on the same video or channel. Comment Finder does not maintain a permanent offline comment cache, profile users, use advertising technology, or sell or share this information for advertising. Aggregate proxy telemetry records only the endpoint called and its response status so the operator can monitor API quota use.
+      Search results stay on your device for the current browser session so the popup or side panel can restore them when reopened on the same video or channel. Comment Finder does not maintain a permanent offline comment cache, profile users, use advertising technology, or sell or share this information for advertising. Aggregate proxy telemetry records only the endpoint called and its response status so the operator can monitor API quota use.
     </p>
 
     <h2>Device storage</h2>

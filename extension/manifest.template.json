@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Comment Finder",
   "version": "0.1.0",
+  "minimum_chrome_version": "142",
   "description": "Search public comments on the current video or channel.",
   "icons": {
     "16": "assets/icon-active-16.png",
@@ -19,10 +20,27 @@
       "128": "assets/icon-inactive-128.png"
     }
   },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["activeTab", "storage", "declarativeContent"],
-  "host_permissions": ["__API_ORIGIN__/*"]
+  "commands": {
+    "open-side-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+C",
+        "mac": "Option+Shift+C"
+      },
+      "description": "Open Comment Finder in the side panel"
+    }
+  },
+  "permissions": ["activeTab", "storage", "declarativeContent", "sidePanel"],
+  "host_permissions": [
+    "__API_ORIGIN__/*",
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+    "https://youtube.com/*"
+  ]
 }

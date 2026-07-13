@@ -1,19 +1,12 @@
-import { ApiError, fetchChannelMetadata, fetchVideoMetadata, searchCommentThreads } from "./api.js";
-import { PAGE_ORDER_KEY, isPageState, nextPageOrder, pageStorageKey, pageTargetKey } from "./page-state.js";
+import { isPageState, pageStorageKey, pageTargetKey } from "./page-state.js";
 import {
-  apiErrorMessage,
-  channelMetadata,
   classifyPageTarget,
-  commentView,
   relativeTimeFrom,
   timestampMatches,
-  videoMetadata,
-  videoTitlesFromResponse,
 } from "./shared.js";
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
 const PRIVACY_POLICY_VERSION = "2026-07-12-declarative";
-const VIDEO_TITLE_BATCH_SIZE = 50;
 
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
@@ -32,6 +25,7 @@ const elements = {
   keyword: document.querySelector("#keyword"),
   legacyChannelNote: document.querySelector("#legacy-channel-note"),
   loadMore: document.querySelector("#load-more"),
+  openSidePanel: document.querySelector("#open-side-panel"),
   pageContext: document.querySelector("#page-context"),
   pageHeader: document.querySelector(".page-header"),
   popupShell: document.querySelector(".popup-shell"),
@@ -55,13 +49,15 @@ const elements = {
   videoViewCountValue: document.querySelector("#video-view-count-value"),
 };
 
+const isSidePanel = document.body.classList.contains("is-side-panel");
+let sidePanelSyncStarted = false;
+
 const state = {
   comments: [],
-  controller: null,
+  contextIdentity: null,
+  contextLoadGeneration: 0,
   metadata: null,
   nextPageToken: null,
-  persistQueue: Promise.resolve(),
-  requestSequence: 0,
   target: null,
   videoTitles: {},
 };
@@ -74,14 +70,6 @@ const ICON_PATHS = {
 
 function isChannelScoped() {
   return state.target?.kind === "channel" || state.target?.kind === "handle";
-}
-
-function searchChannelId() {
-  if (state.target?.kind === "channel") {
-    return state.target.channelId;
-  }
-
-  return typeof state.metadata?.channelId === "string" ? state.metadata.channelId : null;
 }
 
 function setStatus(message, stateName = "") {
@@ -542,37 +530,6 @@ function renderCommentViews(views, append, query) {
   }
 }
 
-function persistPageState() {
-  const targetKey = pageTargetKey(state.target);
-  if (!targetKey) {
-    return state.persistQueue;
-  }
-
-  const key = pageStorageKey(targetKey);
-  const pageState = {
-    comments: state.comments,
-    keyword: elements.keyword.value,
-    metadata: state.metadata,
-    nextPageToken: state.nextPageToken,
-    status: elements.status.textContent,
-    statusState: elements.status.dataset.state ?? "",
-    updatedAt: Date.now(),
-    videoTitles: state.videoTitles,
-  };
-
-  const run = async () => {
-    const stored = await chrome.storage.session.get(PAGE_ORDER_KEY);
-    const { next, removed } = nextPageOrder(stored[PAGE_ORDER_KEY], targetKey);
-    await chrome.storage.session.set({ [key]: pageState, [PAGE_ORDER_KEY]: next });
-    if (removed.length > 0) {
-      await chrome.storage.session.remove(removed.map(pageStorageKey));
-    }
-  };
-
-  state.persistQueue = state.persistQueue.then(run, run);
-  return state.persistQueue;
-}
-
 function applySourceTitles(views) {
   for (const view of views) {
     const title = state.videoTitles[view.videoId];
@@ -611,9 +568,10 @@ function applyPageState(page) {
 
   setStatus(page.status, page.statusState);
   setLoadMoreVisibility();
+  setSearchControls(true, page.statusState === "loading");
 }
 
-async function restorePageState(target) {
+async function restorePageState(target, generation) {
   const targetKey = pageTargetKey(target);
   if (!targetKey) {
     return false;
@@ -622,6 +580,10 @@ async function restorePageState(target) {
   const key = pageStorageKey(targetKey);
   const stored = await chrome.storage.session.get(key);
   const page = stored[key];
+  if (generation !== state.contextLoadGeneration || state.target !== target) {
+    return false;
+  }
+
   if (!isPageState(page)) {
     return false;
   }
@@ -630,17 +592,60 @@ async function restorePageState(target) {
   return true;
 }
 
-async function showApplication() {
+/** Stable key for the active page; reuses session storage target keys when searchable. */
+function contextIdentity(classification) {
+  return pageTargetKey(classification) ?? classification.kind;
+}
+
+function resetTransientUiState() {
+  state.comments = [];
+  state.metadata = null;
+  state.nextPageToken = null;
+  state.target = null;
+  state.videoTitles = {};
+  elements.keyword.value = "";
+  elements.resultList.replaceChildren();
+  elements.resultsSection.hidden = true;
+  setLoadMoreVisibility();
+  setStatus("");
+  setSearchControls(false);
+  elements.videoMetadata.classList.remove("is-skeleton");
+  elements.videoMetadata.hidden = true;
+  elements.pageContext.hidden = false;
+  elements.pageContext.textContent = "";
+  clearChannelCardExtras();
+  clearVideoCardExtras();
+}
+
+/**
+ * Load (or switch) UI for the focused window’s active tab.
+ * YouTube URLs come from host_permissions; other tabs have no readable URL → empty state.
+ * Side panel reuses this document across navigations; popup runs it once per open.
+ */
+async function showApplication({ focusSearch = true } = {}) {
   elements.privacyGate.hidden = true;
   elements.app.hidden = false;
 
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const pageUrl = typeof tab?.url === "string" ? tab.url : null;
   const classification = pageUrl ? classifyPageTarget(pageUrl) : { kind: "none" };
-  const rawTarget =
-    classification.kind === "video" || classification.kind === "channel" || classification.kind === "handle"
-      ? classification
-      : null;
+  const identity = contextIdentity(classification);
+
+  if (identity === state.contextIdentity) {
+    if (state.target) {
+      void prefetchMetadata();
+    }
+    return;
+  }
+
+  const generation = (state.contextLoadGeneration += 1);
+  state.contextIdentity = identity;
+
+  resetTransientUiState();
+
+  const rawTarget = pageTargetKey(classification)
+    ? classification
+    : null;
 
   if (!rawTarget) {
     elements.stickyAside.hidden = true;
@@ -657,176 +662,106 @@ async function showApplication() {
 
   state.target = rawTarget;
   setSearchControls(true);
-  const restored = await restorePageState(state.target);
-  if (!restored || !state.metadata) {
-    void prefetchMetadata();
-  }
-  elements.keyword.focus();
-  elements.keyword.select();
-}
-
-async function hydrateSourceVideos(views, sequence, signal) {
-  if (!isChannelScoped()) {
+  await restorePageState(state.target, generation);
+  if (generation !== state.contextLoadGeneration) {
     return;
   }
 
-  const missing = [];
-  for (const view of views) {
-    if (view.videoId && !state.videoTitles[view.videoId] && !missing.includes(view.videoId)) {
-      missing.push(view.videoId);
-    }
-  }
+  void prefetchMetadata();
 
-  for (let index = 0; index < missing.length; index += VIDEO_TITLE_BATCH_SIZE) {
-    const batch = missing.slice(index, index + VIDEO_TITLE_BATCH_SIZE);
-    const response = await fetchVideoMetadata(batch, signal);
-    if (sequence !== state.requestSequence) {
+  if (focusSearch) {
+    elements.keyword.focus();
+    elements.keyword.select();
+  }
+}
+
+function setupPageStateSync() {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "session" || !state.target) {
       return;
     }
-    Object.assign(state.videoTitles, videoTitlesFromResponse(response));
-  }
 
-  applySourceTitles(views);
+    const key = pageStorageKey(pageTargetKey(state.target));
+    const page = changes[key]?.newValue;
+    if (isPageState(page)) {
+      applyPageState(page);
+    }
+  });
 }
 
-async function renderPage(response, append, sequence, signal) {
-  const views = [];
-  const ownerChannelId = state.metadata?.channelId ?? null;
-  const fallbackVideoId = state.target?.kind === "video" ? state.target.videoId : null;
-  const channelId = isChannelScoped() ? searchChannelId() : null;
-  for (const thread of Array.isArray(response.items) ? response.items : []) {
-    const view = commentView(thread, fallbackVideoId, ownerChannelId, channelId);
-    if (view) {
-      views.push(view);
-    }
-  }
-
-  await hydrateSourceVideos(views, sequence, signal);
-  if (sequence !== state.requestSequence) {
+async function setupSidePanelTabSync() {
+  if (!isSidePanel || sidePanelSyncStarted) {
     return;
   }
 
-  if (!append) {
-    state.comments = views;
-  } else {
-    state.comments.push(...views);
-  }
-
-  state.nextPageToken = typeof response.nextPageToken === "string" ? response.nextPageToken : null;
-  setLoadMoreVisibility();
-
-  if (views.length === 0 && !append) {
-    elements.resultsSection.hidden = true;
-    setStatus("No matching comments were returned for this keyword.");
-    void persistPageState();
-    elements.popupShell.scrollTo(0, 0);
+  const panelWindow = await chrome.windows.getCurrent();
+  if (typeof panelWindow.id !== "number") {
     return;
   }
 
-  elements.resultsSection.hidden = false;
-  renderCommentViews(views, append, elements.keyword.value.trim());
-  setStatus("");
-  void persistPageState();
-  if (!append) {
-    elements.popupShell.scrollTo(0, 0);
-  }
-}
-
-function stopCurrentRequest() {
-  state.controller?.abort();
-  state.controller = null;
-}
-
-async function loadMetadata(sequence, signal) {
-  if (state.metadata) {
-    return true;
-  }
-
-  if (state.target.kind === "video") {
-    const response = await fetchVideoMetadata(state.target.videoId, signal);
-    if (sequence !== state.requestSequence) {
-      return false;
-    }
-
-    state.metadata = videoMetadata(response);
-    if (!state.metadata) {
-      setStatus("Video details are unavailable through the YouTube Data API.", "error");
-      return false;
-    }
-
-    showPageMetadata();
-    return true;
-  }
-
-  const response = await fetchChannelMetadata(
-    state.target.kind === "handle" ? { forHandle: state.target.handle } : { channelId: state.target.channelId },
-    signal,
-  );
-  if (sequence !== state.requestSequence) {
-    return false;
-  }
-
-  const metadata = channelMetadata(response);
-  if (!metadata) {
-    setStatus("Channel details are unavailable through the YouTube Data API.", "error");
-    return false;
-  }
-
-  state.metadata = metadata;
-  showPageMetadata();
-  return true;
-}
-
-async function prefetchMetadata() {
-  if (!state.target || state.metadata) {
+  if (sidePanelSyncStarted) {
     return;
   }
 
-  state.requestSequence += 1;
-  const sequence = state.requestSequence;
-  const controller = new AbortController();
-  state.controller = controller;
-  showVideoSkeleton();
+  sidePanelSyncStarted = true;
+  const panelWindowId = panelWindow.id;
+  let debounceTimer = 0;
 
-  try {
-    if (!(await loadMetadata(sequence, controller.signal))) {
-      if (sequence === state.requestSequence && !state.metadata) {
+  const scheduleSync = () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    // Coalesce activation + SPA URL events; re-query this panel's active tab.
+    debounceTimer = setTimeout(() => {
+      debounceTimer = 0;
+      void showApplication({ focusSearch: false });
+    }, 50);
+  };
+
+  chrome.tabs.onActivated.addListener(({ windowId }) => {
+    if (windowId === panelWindowId) {
+      scheduleSync();
+    }
+  });
+
+  // URL-only: YouTube is an SPA; `status: complete` fires often without a page change.
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (tab.windowId === panelWindowId && tab.active && changeInfo.url) {
+      scheduleSync();
+    }
+  });
+
+  chrome.windows.onFocusChanged.addListener((windowId) => {
+    if (windowId === panelWindowId) {
+      scheduleSync();
+    }
+  });
+}
+
+function prefetchMetadata() {
+  if (!state.target) {
+    return;
+  }
+
+  const target = state.target;
+  if (!state.metadata) {
+    showVideoSkeleton();
+  }
+
+  void chrome.runtime.sendMessage({ type: "prefetch-page-metadata", target }).then(
+    ({ ok }) => {
+      if (!ok && state.target === target && !state.metadata) {
         showContextMessage(
-          isChannelScoped()
-            ? "Channel details unavailable. You can still try searching."
-            : "Video details unavailable. You can still try searching.",
+          target.kind === "video"
+            ? "Video details unavailable. You can still try searching."
+            : "Channel details unavailable. You can still try searching.",
         );
       }
-      return;
-    }
-
-    if (sequence === state.requestSequence) {
-      void persistPageState();
-    }
-  } catch (error) {
-    if (sequence !== state.requestSequence) {
-      return;
-    }
-
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return;
-    }
-
-    if (error instanceof ApiError || error instanceof TypeError) {
-      showContextMessage(
-        state.target?.kind === "video"
-          ? "Video details unavailable. You can still try searching."
-          : "Channel details unavailable. You can still try searching.",
-      );
-      return;
-    }
-
-    throw error;
-  } finally {
-    if (sequence === state.requestSequence) {
-      state.controller = null;
-    }
-  }
+    },
+    (error) => {
+      console.error("Could not fetch page metadata.", error);
+    },
+  );
 }
 
 async function search(pageToken = null) {
@@ -836,62 +771,11 @@ async function search(pageToken = null) {
     return;
   }
 
-  stopCurrentRequest();
-  state.requestSequence += 1;
-  const sequence = state.requestSequence;
-  const controller = new AbortController();
-  state.controller = controller;
   setSearchControls(true, true);
   setStatus("");
-
-  if (!pageToken) {
-    state.comments = [];
-    state.nextPageToken = null;
-    state.videoTitles = {};
-    setLoadMoreVisibility();
-    elements.resultsSection.hidden = true;
-    elements.resultList.replaceChildren();
-  }
-
-  try {
-    if (!(await loadMetadata(sequence, controller.signal))) {
-      return;
-    }
-
-    const channelId = searchChannelId();
-    const response = await searchCommentThreads(
-      state.target.kind === "video" ? { videoId: state.target.videoId } : { channelId },
-      searchTerms,
-      pageToken,
-      controller.signal,
-    );
-    if (sequence !== state.requestSequence) {
-      return;
-    }
-
-    await renderPage(response, Boolean(pageToken), sequence, controller.signal);
-  } catch (error) {
-    if (sequence !== state.requestSequence) {
-      return;
-    }
-
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return;
-    }
-
-    if (error instanceof ApiError || error instanceof TypeError) {
-      setStatus(apiErrorMessage(error), "error");
-      void persistPageState();
-      return;
-    }
-
-    throw error;
-  } finally {
-    if (sequence === state.requestSequence) {
-      state.controller = null;
-      setSearchControls(true);
-    }
-  }
+  void chrome.runtime.sendMessage({ type: "search-comments", target: state.target, searchTerms, pageToken }).catch((error) => {
+    console.error("Could not start comment search.", error);
+  });
 }
 
 function setupStickyChrome() {
@@ -962,6 +846,7 @@ async function initialize() {
     return;
   }
 
+  await setupSidePanelTabSync();
   await showApplication();
 }
 
@@ -971,6 +856,7 @@ elements.consentCheckbox.addEventListener("change", () => {
 
 elements.acceptConsent.addEventListener("click", async () => {
   await chrome.storage.local.set({ [CONSENT_STORAGE_KEY]: PRIVACY_POLICY_VERSION });
+  await setupSidePanelTabSync();
   await showApplication();
 });
 
@@ -990,6 +876,46 @@ elements.loadMore.addEventListener("click", () => {
   }
 });
 
+function openSidePanelFromPopup() {
+  if (isSidePanel || !elements.openSidePanel) {
+    return;
+  }
+
+  elements.openSidePanel.disabled = true;
+  // The callback preserves the button's user gesture for sidePanel.open().
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (chrome.runtime.lastError) {
+      setStatus(chrome.runtime.lastError.message, "error");
+      elements.openSidePanel.disabled = false;
+      return;
+    }
+
+    if (typeof tab?.windowId !== "number") {
+      setStatus("Could not open the side panel for this window.", "error");
+      elements.openSidePanel.disabled = false;
+      return;
+    }
+
+    // Window-scoped so the panel stays open when switching tabs.
+    chrome.sidePanel.open({ windowId: tab.windowId }).then(
+      () => {
+        window.close();
+      },
+      (error) => {
+        setStatus(error instanceof Error ? error.message : "Could not open the side panel.", "error");
+        elements.openSidePanel.disabled = false;
+      },
+    );
+  });
+}
+
+if (elements.openSidePanel && !isSidePanel) {
+  elements.openSidePanel.addEventListener("click", () => {
+    openSidePanelFromPopup();
+  });
+}
+
 setupStickyChrome();
+setupPageStateSync();
 
 void initialize();
