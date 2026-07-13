@@ -154,6 +154,7 @@ a {
   display: inline-flex;
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .brand-mark {
@@ -171,12 +172,16 @@ a {
 }
 
 .page-header h1 {
+  min-width: 0;
   margin: 0;
   color: var(--ink);
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Header actions (side panel toggle + support) */
