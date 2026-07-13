@@ -26,6 +26,7 @@ const elements = {
   legacyChannelNote: document.querySelector("#legacy-channel-note"),
   loadMore: document.querySelector("#load-more"),
   openSidePanel: document.querySelector("#open-side-panel"),
+  openSidePanelShortcut: document.querySelector("#open-side-panel-shortcut"),
   pageContext: document.querySelector("#page-context"),
   pageHeader: document.querySelector(".page-header"),
   popupShell: document.querySelector(".popup-shell"),
@@ -87,6 +88,26 @@ function setSearchControls(enabled, loading = false) {
 
 function setLoadMoreVisibility() {
   elements.loadMore.hidden = !state.nextPageToken;
+}
+
+function sidePanelShortcutKeys() {
+  const platform = navigator.userAgentData?.platform ?? navigator.platform ?? "";
+  return /mac|iphone|ipad|ipod/i.test(platform) ? ["⇧", "⌥", "C"] : ["Alt", "Shift", "C"];
+}
+
+function setupOpenSidePanelTip() {
+  if (!elements.openSidePanel) {
+    return;
+  }
+  const keys = sidePanelShortcutKeys();
+  elements.openSidePanelShortcut.replaceChildren(
+    ...keys.map((key) => {
+      const kbd = document.createElement("kbd");
+      kbd.textContent = key;
+      return kbd;
+    }),
+  );
+  elements.openSidePanel.setAttribute("aria-label", `Open in side panel (${keys.join("+")})`);
 }
 
 function compactCount(value) {
@@ -918,5 +939,6 @@ if (elements.openSidePanel && !isSidePanel) {
 
 setupStickyChrome();
 setupPageStateSync();
+setupOpenSidePanelTip();
 
 void initialize();
