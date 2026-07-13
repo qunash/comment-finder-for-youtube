@@ -866,8 +866,9 @@ elements.searchForm.addEventListener("submit", (event) => {
 });
 
 elements.clearKeyword.addEventListener("click", () => {
-  elements.keyword.value = "";
   elements.keyword.focus();
+  elements.keyword.select();
+  document.execCommand("delete");
 });
 
 elements.loadMore.addEventListener("click", () => {
