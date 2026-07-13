@@ -10,11 +10,13 @@ const ACTIVE_ICONS = {
 };
 
 const OPEN_SIDE_PANEL_COMMAND = "open-side-panel";
+const SEARCH_COUNT_STORAGE_KEY = "searchCount";
 const SUPPORTED_YOUTUBE_URL_PATTERN = "^https://(www\\.|m\\.)?youtube\\.com/(watch|shorts/|channel/|@)";
 const sidePanelWindowIds = new Set();
 const metadataRequests = new Map();
 const searches = new Map();
 let pageWriteQueue = Promise.resolve();
+let searchCountWriteQueue = Promise.resolve();
 
 function isChannelScoped(target) {
   return target.kind === "channel" || target.kind === "handle";
@@ -40,6 +42,17 @@ function updatePageState(targetKey, update) {
   };
   pageWriteQueue = pageWriteQueue.then(write, write);
   return pageWriteQueue;
+}
+
+function incrementSearchCount() {
+  const write = async () => {
+    const stored = await chrome.storage.local.get(SEARCH_COUNT_STORAGE_KEY);
+    const previous = stored[SEARCH_COUNT_STORAGE_KEY];
+    const count = Number.isSafeInteger(previous) && previous >= 0 ? previous + 1 : 1;
+    await chrome.storage.local.set({ [SEARCH_COUNT_STORAGE_KEY]: count });
+  };
+  searchCountWriteQueue = searchCountWriteQueue.then(write, write);
+  return searchCountWriteQueue;
 }
 
 async function fetchPageMetadata(target) {
@@ -125,6 +138,10 @@ async function runSearch({ target, searchTerms, pageToken }) {
   const targetKey = pageTargetKey(target);
   if (!targetKey || typeof searchTerms !== "string" || (pageToken !== null && typeof pageToken !== "string")) {
     return;
+  }
+
+  if (pageToken === null) {
+    await incrementSearchCount();
   }
 
   searches.get(targetKey)?.abort();

@@ -7,6 +7,7 @@ import {
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
 const PRIVACY_POLICY_VERSION = "2026-07-12-declarative";
+const SEARCH_COUNT_STORAGE_KEY = "searchCount";
 
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
@@ -22,6 +23,9 @@ const elements = {
   clearKeyword: document.querySelector("#clear-keyword"),
   emptyState: document.querySelector("#empty-state"),
   emptyStateCta: document.querySelector(".empty-state-cta"),
+  emptyStateSearchCount: document.querySelector("#empty-state-search-count"),
+  emptyStateSearchCountValue: document.querySelector("#empty-state-search-count-value"),
+  emptyStateSearchCountTrail: document.querySelector("#empty-state-search-count-trail"),
   keyword: document.querySelector("#keyword"),
   legacyChannelNote: document.querySelector("#legacy-channel-note"),
   loadMore: document.querySelector("#load-more"),
@@ -619,6 +623,20 @@ function resetTransientUiState() {
   clearVideoCardExtras();
 }
 
+async function showSearchCount() {
+  const stored = await chrome.storage.local.get(SEARCH_COUNT_STORAGE_KEY);
+  const count = stored[SEARCH_COUNT_STORAGE_KEY];
+  const hasSearches = Number.isSafeInteger(count) && count > 0;
+  elements.emptyStateSearchCount.hidden = !hasSearches;
+  if (hasSearches) {
+    elements.emptyStateSearchCountValue.textContent = integerFormatter.format(count);
+    elements.emptyStateSearchCountTrail.textContent = count === 1 ? "time so far" : "times so far";
+  } else {
+    elements.emptyStateSearchCountValue.textContent = "";
+    elements.emptyStateSearchCountTrail.textContent = "";
+  }
+}
+
 /**
  * Load (or switch) UI for the focused window’s active tab.
  * YouTube URLs come from host_permissions; other tabs have no readable URL → empty state.
@@ -654,6 +672,7 @@ async function showApplication({ focusSearch = true } = {}) {
     elements.brand.style.visibility = "hidden";
     elements.legacyChannelNote.hidden = classification.kind !== "legacy-channel";
     elements.emptyStateCta.hidden = classification.kind !== "none";
+    await showSearchCount();
     elements.emptyState.hidden = false;
     return;
   }
@@ -679,6 +698,11 @@ async function showApplication({ focusSearch = true } = {}) {
 
 function setupPageStateSync() {
   chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && changes[SEARCH_COUNT_STORAGE_KEY] && !state.target) {
+      void showSearchCount();
+      return;
+    }
+
     if (areaName !== "session" || !state.target) {
       return;
     }
