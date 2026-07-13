@@ -867,6 +867,13 @@ elements.searchForm.addEventListener("submit", (event) => {
   void search();
 });
 
+elements.keyword.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    elements.keyword.blur();
+  }
+});
+
 elements.clearKeyword.addEventListener("click", () => {
   elements.keyword.focus();
   elements.keyword.select();
