@@ -8,6 +8,8 @@ import {
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
 const PRIVACY_POLICY_VERSION = "2026-07-12-declarative";
 const SEARCH_COUNT_STORAGE_KEY = "searchCount";
+const REVIEW_PROMPT_CLICKED_STORAGE_KEY = "reviewPromptClicked";
+const REVIEW_PROMPT_SEARCH_THRESHOLD = 10;
 
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
@@ -26,6 +28,8 @@ const elements = {
   emptyStateSearchCount: document.querySelector("#empty-state-search-count"),
   emptyStateSearchCountValue: document.querySelector("#empty-state-search-count-value"),
   emptyStateSearchCountTrail: document.querySelector("#empty-state-search-count-trail"),
+  emptyStateReviewButton: document.querySelector("#empty-state-review-button"),
+  emptyStateReviewPrompt: document.querySelector("#empty-state-review-prompt"),
   keyword: document.querySelector("#keyword"),
   legacyChannelNote: document.querySelector("#legacy-channel-note"),
   loadMore: document.querySelector("#load-more"),
@@ -624,7 +628,7 @@ function resetTransientUiState() {
 }
 
 async function showSearchCount() {
-  const stored = await chrome.storage.local.get(SEARCH_COUNT_STORAGE_KEY);
+  const stored = await chrome.storage.local.get([SEARCH_COUNT_STORAGE_KEY, REVIEW_PROMPT_CLICKED_STORAGE_KEY]);
   const count = stored[SEARCH_COUNT_STORAGE_KEY];
   const hasSearches = Number.isSafeInteger(count) && count > 0;
   elements.emptyStateSearchCount.hidden = !hasSearches;
@@ -634,6 +638,15 @@ async function showSearchCount() {
   } else {
     elements.emptyStateSearchCountValue.textContent = "";
     elements.emptyStateSearchCountTrail.textContent = "";
+  }
+
+  const shouldShowReviewPrompt =
+    Number.isSafeInteger(count) &&
+    count >= REVIEW_PROMPT_SEARCH_THRESHOLD &&
+    stored[REVIEW_PROMPT_CLICKED_STORAGE_KEY] !== true;
+  elements.emptyStateReviewPrompt.hidden = !shouldShowReviewPrompt;
+  if (shouldShowReviewPrompt) {
+    elements.emptyStateReviewButton.href = `https://chromewebstore.google.com/detail/${chrome.runtime.id}/reviews`;
   }
 }
 
@@ -698,7 +711,11 @@ async function showApplication({ focusSearch = true } = {}) {
 
 function setupPageStateSync() {
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === "local" && changes[SEARCH_COUNT_STORAGE_KEY] && !state.target) {
+    if (
+      areaName === "local" &&
+      (changes[SEARCH_COUNT_STORAGE_KEY] || changes[REVIEW_PROMPT_CLICKED_STORAGE_KEY]) &&
+      !state.target
+    ) {
       void showSearchCount();
       return;
     }
@@ -908,6 +925,11 @@ elements.loadMore.addEventListener("click", () => {
   if (state.nextPageToken) {
     void search(state.nextPageToken);
   }
+});
+
+elements.emptyStateReviewButton.addEventListener("click", () => {
+  elements.emptyStateReviewPrompt.hidden = true;
+  void chrome.storage.local.set({ [REVIEW_PROMPT_CLICKED_STORAGE_KEY]: true });
 });
 
 function openSidePanelFromPopup() {
