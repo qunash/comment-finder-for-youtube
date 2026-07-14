@@ -15,6 +15,8 @@
   --highlight: rgba(255, 213, 0, 0.55);
   --danger: #d92020;
   --focus: #a8c7fa;
+  --author-badge-bg: #0f0f0f;
+  --author-badge-ink: #ffffff;
 
   --shadow-sm: 0 1px 2px rgba(15, 15, 15, 0.04), 0 2px 6px rgba(15, 15, 15, 0.06);
   --shadow-md: 0 2px 8px rgba(15, 15, 15, 0.08), 0 12px 28px rgba(15, 15, 15, 0.08);
@@ -48,6 +50,8 @@
     --highlight: rgba(255, 213, 0, 0.32);
     --danger: #ff6b6b;
     --focus: #5b9bd5;
+    --author-badge-bg: #ffffff;
+    --author-badge-ink: #0f0f0f;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.45);
     --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.5), 0 16px 36px rgba(0, 0, 0, 0.55);
@@ -1026,14 +1030,14 @@ a:focus-visible,
   align-items: center;
   gap: 4px;
   padding: 1px 6px;
-  background: #ffffff;
+  background: var(--author-badge-bg);
   border-radius: var(--radius-pill);
-  color: #0f0f0f;
+  color: var(--author-badge-ink);
   text-decoration: none;
 }
 
 .comment-author-badge:hover {
-  color: #0f0f0f;
+  color: var(--author-badge-ink);
   text-decoration: none;
 }
 
@@ -1044,8 +1048,8 @@ a:focus-visible,
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: #0f0f0f;
-  color: #ffffff;
+  background: var(--author-badge-ink);
+  color: var(--author-badge-bg);
   font-size: 9px;
   font-weight: 700;
   line-height: 1;
