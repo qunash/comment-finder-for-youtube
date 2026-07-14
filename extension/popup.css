@@ -1192,7 +1192,7 @@ a:focus-visible,
   gap: 6px;
   align-items: center;
   justify-self: start;
-  margin-top: 4px;
+  margin: 4px 0 0 34px;
   padding: 4px 0;
   color: var(--accent);
   font-size: 13px;
