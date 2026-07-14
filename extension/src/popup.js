@@ -14,7 +14,6 @@ const REVIEW_PROMPT_SEARCH_THRESHOLD = 10;
 const elements = {
   acceptConsent: document.querySelector("#accept-consent"),
   app: document.querySelector("#app"),
-  brand: document.querySelector(".brand"),
   channelAvatar: document.querySelector("#channel-avatar"),
   channelSubscriberCount: document.querySelector("#channel-subscriber-count"),
   channelSubscriberCountValue: document.querySelector("#channel-subscriber-count-value"),
@@ -634,7 +633,7 @@ async function showSearchCount() {
   elements.emptyStateSearchCount.hidden = !hasSearches;
   if (hasSearches) {
     elements.emptyStateSearchCountValue.textContent = integerFormatter.format(count);
-    elements.emptyStateSearchCountTrail.textContent = count === 1 ? "time so far" : "times so far";
+    elements.emptyStateSearchCountTrail.textContent = count === 1 ? "time" : "times";
   } else {
     elements.emptyStateSearchCountValue.textContent = "";
     elements.emptyStateSearchCountTrail.textContent = "";
@@ -682,7 +681,6 @@ async function showApplication({ focusSearch = true } = {}) {
 
   if (!rawTarget) {
     elements.stickyAside.hidden = true;
-    elements.brand.style.visibility = "hidden";
     elements.legacyChannelNote.hidden = classification.kind !== "legacy-channel";
     elements.emptyStateCta.hidden = classification.kind !== "none";
     await showSearchCount();
@@ -690,7 +688,6 @@ async function showApplication({ focusSearch = true } = {}) {
     return;
   }
 
-  elements.brand.style.visibility = "";
   elements.emptyState.hidden = true;
   elements.stickyAside.hidden = false;
 

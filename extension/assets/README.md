@@ -15,3 +15,5 @@ https://developers.google.com/static/youtube/images/developed-with-youtube-sente
 https://developers.google.com/static/youtube/images/developed-with-youtube-sentence-case-light.png
 
 Both assets must stay linked to YouTube content when displayed and must not be altered.
+
+Displayed size in the popup footer is 112×40 CSS px (asset ratio 700×250). That is above the YouTube brand-site minimum digital height of 20dp for logo marks, while staying secondary to the extension UI (API branding guidelines: resize appropriately; do not make YouTube branding the most prominent element).

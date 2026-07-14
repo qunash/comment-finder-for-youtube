@@ -71,24 +71,34 @@
 
       <section id="app" hidden>
         <section id="empty-state" class="empty-state" hidden>
-          <img class="empty-state-icon" src="assets/icon-active-128.png" width="56" height="56" alt="" />
-          <h2>Comment Finder for YouTube</h2>
-          <p>Open a YouTube video, short or a channel page to search for comments</p>
-          <p id="legacy-channel-note" class="empty-state-note" hidden>
-            This channel's legacy /c/ URL isn't supported. Open its @handle page instead.
-          </p>
-          <a class="button button-primary empty-state-cta" href="https://www.youtube.com/" target="_blank" rel="noreferrer">Open YouTube</a>
-          <div id="empty-state-search-count" class="empty-state-search-count" hidden>
-            <span class="search-count-lead">Searched</span>
-            <span id="empty-state-search-count-value" class="search-count-number"></span>
-            <span id="empty-state-search-count-trail" class="search-count-trail"></span>
+          <div class="empty-state-visual" aria-hidden="true">
+            <svg class="empty-state-glyph" viewBox="0 0 48 48" fill="none">
+              <rect x="7" y="11" width="34" height="26" rx="7" stroke="currentColor" stroke-width="1.75" />
+              <path d="M20 18.5v11l10-5.5-10-5.5z" fill="currentColor" />
+            </svg>
           </div>
-          <div id="empty-state-review-prompt" class="empty-state-review-prompt" hidden>
-            <p class="review-prompt-line">Like this extension?</p>
-            <p class="review-prompt-cta">
-              Please
-              <a id="empty-state-review-button" class="review-button" target="_blank" rel="noreferrer">Write a review</a>
-              🙏
+          <div class="empty-state-copy">
+            <h2>Open a YouTube page</h2>
+            <p>Search comments on any Video, Short, or Channel.</p>
+            <p id="legacy-channel-note" class="empty-state-note" hidden>
+              This channel's legacy /c/ URL isn't supported. Open its @handle page instead.
+            </p>
+          </div>
+          <a class="button button-primary empty-state-cta" href="https://www.youtube.com/" target="_blank" rel="noreferrer">
+            <span class="button-label">Open YouTube</span>
+            <svg class="empty-state-cta-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M5.5 3.5H12.5V10.5M12.2 3.8L3.5 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </a>
+          <div class="empty-state-meta">
+            <p id="empty-state-search-count" class="empty-state-search-count" hidden>
+              <span class="search-count-lead">You’ve searched</span>
+              <span id="empty-state-search-count-value" class="search-count-number"></span>
+              <span id="empty-state-search-count-trail" class="search-count-trail"></span>
+            </p>
+            <p id="empty-state-review-prompt" class="empty-state-review-prompt" hidden>
+              Enjoying Comment Finder? Please
+              <a id="empty-state-review-button" class="review-link" target="_blank" rel="noreferrer">Leave a review</a>
             </p>
           </div>
         </section>
@@ -163,11 +173,15 @@
       </section>
 
       <footer class="page-footer">
-        <a href="privacy.html" target="_blank" rel="noreferrer">Privacy policy</a>
+        <nav class="footer-links" aria-label="Footer">
+          <a href="privacy.html" target="_blank" rel="noreferrer">Privacy</a>
+          <span class="footer-sep" aria-hidden="true">·</span>
+          <a href="https://github.com/qunash/comment-finder-for-youtube" target="_blank" rel="noreferrer">GitHub</a>
+        </nav>
         <a class="youtube-attribution" href="https://www.youtube.com/" target="_blank" rel="noreferrer">
           <picture>
             <source srcset="assets/developed-with-youtube-light.png" media="(prefers-color-scheme: dark)" />
-            <img src="assets/developed-with-youtube.png" alt="Developed with YouTube" />
+            <img src="assets/developed-with-youtube.png" alt="Developed with YouTube" width="112" height="40" />
           </picture>
         </a>
       </footer>
