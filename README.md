@@ -149,13 +149,13 @@ Cloudflare Workers is a good free MVP host. Its request allowance is above the Y
    bun run deploy:proxy
    ```
 
-2. Build the production extension with the public Worker origin:
+2. Build the production extension with the public Worker origin (custom domain on `incredible.tools`):
 
    ```bash
-   EXTENSION_API_BASE_URL=https://comment-finder-proxy.YOUR_SUBDOMAIN.workers.dev bun run build:extension
+   EXTENSION_API_BASE_URL=https://comment-finder.incredible.tools bun run build:extension
    ```
 
-   The build writes that exact host into the MV3 `host_permissions` list. It is public configuration, not a credential.
+   The build writes that exact host into the MV3 `host_permissions` list. It is public configuration, not a credential. The apex `incredible.tools` stays free for the site and other tools; each tool gets its own subdomain.
 
 3. Upload a draft to the Chrome Web Store (or otherwise obtain its stable production extension ID), then configure the exact origin:
 
