@@ -113,16 +113,12 @@ function parseVideoIds(value: string): string[] | null {
 
 export async function handleRequest(request: Request, env: Env, fetcher: typeof fetch = fetch): Promise<Response> {
   const url = new URL(request.url);
-  const allowedOrigin = env.ALLOWED_EXTENSION_ORIGIN;
-  const allowedExtensionId = allowedOrigin?.startsWith(EXTENSION_ORIGIN_PREFIX)
-    ? allowedOrigin.slice(EXTENSION_ORIGIN_PREFIX.length)
-    : null;
-
-  if (!allowedExtensionId || request.headers.get("X-Extension-Id")?.trim() !== allowedExtensionId) {
+  const extensionId = request.headers.get("X-Extension-Id")?.trim() ?? "";
+  const origin = `${EXTENSION_ORIGIN_PREFIX}${extensionId}`;
+  const allowed = (env.ALLOWED_EXTENSION_ORIGIN ?? "").split(",").map((part) => part.trim());
+  if (!extensionId || !allowed.includes(origin)) {
     return errorResponse(403, "This origin is not allowed to use the proxy.", "forbidden");
   }
-
-  const origin = allowedOrigin!;
 
   const isSupportedPath =
     url.pathname === COMMENT_THREADS_PATH || url.pathname === CHANNELS_PATH || url.pathname === VIDEOS_PATH;

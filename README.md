@@ -38,7 +38,7 @@ Chrome MV3
                    │
                    ▼
 Cloudflare Worker
-  exact chrome-extension://<id> CORS gate
+  exact chrome-extension://<id> allowlist (comma-separated) + CORS echo
   strict parameter allow-list + 20/min edge rate limit
   aggregate endpoint/status telemetry only
                    │
@@ -125,7 +125,7 @@ bun install
    cp proxy/.dev.vars.example proxy/.dev.vars
    ```
 
-   Set `YOUTUBE_API_KEY` and set `ALLOWED_EXTENSION_ORIGIN` to exactly:
+   Set `YOUTUBE_API_KEY` and set `ALLOWED_EXTENSION_ORIGIN` to one or more exact origins (comma-separated):
 
    ```text
    chrome-extension://YOUR_UNPACKED_EXTENSION_ID
@@ -139,7 +139,7 @@ bun install
 
 5. Reload the unpacked extension after each build. Test a comment-enabled video, a channel or @handle page, a disabled-comments video, a blank keyword, an unsupported page, and pagination.
 
-Local and production extension IDs differ. Use a separate local Worker or separate local origin configuration; never add a wildcard origin.
+Local and production extension IDs differ. List both origins in `ALLOWED_EXTENSION_ORIGIN` when one Worker should serve both; never add a wildcard origin.
 
 ## Production deployment
 
@@ -160,11 +160,12 @@ Cloudflare Workers is a good free MVP host. Its request allowance is above the Y
 
    The build writes that exact host into the MV3 `host_permissions` list. It is public configuration, not a credential. The apex `incredible.tools` stays free for the site and other tools; each tool gets its own subdomain.
 
-3. Upload a draft to the Chrome Web Store (or otherwise obtain its stable production extension ID), then configure the exact origin:
+3. Upload a draft to the Chrome Web Store (or otherwise obtain its stable production extension ID), then configure the allowed origin(s):
 
    ```bash
    bunx wrangler secret put ALLOWED_EXTENSION_ORIGIN --config proxy/wrangler.jsonc
-   # Value: chrome-extension://YOUR_CHROME_WEB_STORE_EXTENSION_ID
+   # Value (comma-separate to allow production and a local unpacked ID):
+   # chrome-extension://YOUR_CHROME_WEB_STORE_EXTENSION_ID,chrome-extension://YOUR_UNPACKED_EXTENSION_ID
    ```
 
    Although this value is not sensitive, storing it as a Worker secret keeps deployment configuration out of source control. The secret update deploys a new Worker version.

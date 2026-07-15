@@ -127,6 +127,37 @@ test("rejects requests from other extensions and supports valid preflight", asyn
   expect(preflight.headers.get("Vary")).toBe("Origin");
 });
 
+test("accepts any origin listed in a comma-separated ALLOWED_EXTENSION_ORIGIN", async () => {
+  const productionId = "ecidemeccmgcmgaadfdaoajoalnbpgkl";
+  const developmentId = "ibioeedijjmalffngabbjchjcpoakobn";
+  const env = environment({
+    ALLOWED_EXTENSION_ORIGIN: `chrome-extension://${productionId}, chrome-extension://${developmentId}`,
+  });
+  const fetcher: typeof fetch = async () =>
+    new Response("{}", { headers: { "Content-Type": "application/json" } });
+
+  for (const id of [productionId, developmentId]) {
+    const response = await handleRequest(
+      new Request(`https://proxy.example/yt/commentThreads?videoId=${videoId}&searchTerms=hello`, {
+        headers: { "CF-Connecting-IP": "203.0.113.1", "X-Extension-Id": id },
+      }),
+      env,
+      fetcher,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(`chrome-extension://${id}`);
+  }
+
+  const rejected = await handleRequest(
+    new Request(`https://proxy.example/yt/commentThreads?videoId=${videoId}&searchTerms=hello`, {
+      headers: { "CF-Connecting-IP": "203.0.113.1", "X-Extension-Id": "not-listed" },
+    }),
+    env,
+    fetcher,
+  );
+  expect(rejected.status).toBe(403);
+});
+
 test("returns a rate-limit response before calling YouTube and records aggregate telemetry", async () => {
   const points: Array<{ blobs: string[]; doubles: number[] }> = [];
   let fetchCount = 0;
