@@ -198,7 +198,7 @@ The test suite covers URL parsing, XSS-safe comment data mapping, privacy/manife
 
 - [ ] Use one GCP project only for this extension, with YouTube Data API v3 enabled.
 - [ ] Keep `YOUTUBE_API_KEY` only in the Worker secret store; restrict it to the YouTube Data API.
-- [ ] Replace `REPLACE_WITH_PRIVACY_CONTACT` in `extension/privacy.html` and publish the same policy at a stable public URL before public use.
+- [ ] Publish `extension/privacy.html` at https://incredible.tools/youtube-comment-finder/policy-extension (contact: contact@incredible.tools) before public use.
 - [ ] Keep the privacy-consent gate, YouTube Terms link, and Google Privacy Policy link accessible.
 - [ ] Do not add page injection, DOM scraping, Innertube calls, or a broad host permission.
 - [ ] Do not keep a permanent offline comment cache. Session restore may hold recent per-video, per-channel, and per-handle results in `chrome.storage.session` until the browser closes; the Worker must not cache comment data.

@@ -6,7 +6,7 @@ import {
 } from "./shared.js";
 
 const CONSENT_STORAGE_KEY = "privacyConsentVersion";
-const PRIVACY_POLICY_VERSION = "2026-07-12-declarative";
+const PRIVACY_POLICY_VERSION = "2026-07-15";
 const SEARCH_COUNT_STORAGE_KEY = "searchCount";
 const REVIEW_PROMPT_CLICKED_STORAGE_KEY = "reviewPromptClicked";
 const REVIEW_PROMPT_SEARCH_THRESHOLD = 10;

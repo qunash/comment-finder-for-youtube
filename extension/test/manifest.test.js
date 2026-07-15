@@ -38,6 +38,10 @@ test("includes the required privacy links and never uses HTML comment rendering"
   expect(privacyPolicy).toContain("https://www.youtube.com/t/terms");
   expect(privacyPolicy).toContain("https://policies.google.com/privacy");
   expect(privacyPolicy).toContain("session storage");
+  expect(privacyPolicy).toContain("contact@incredible.tools");
+  expect(privacyPolicy).toContain("https://incredible.tools/youtube-comment-finder/policy-extension");
+  expect(privacyPolicy).not.toContain("REPLACE_WITH_PRIVACY_CONTACT");
+  expect(popupSource).toContain('PRIVACY_POLICY_VERSION = "2026-07-15"');
   expect(popupSource).not.toContain("innerHTML");
   expect(popupSource).toContain("chrome.storage.session");
 });
