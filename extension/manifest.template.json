@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Comment Finder",
-  "version": "0.1.0",
+  "name": "Comment Finder for YouTube",
+  "version": "0.1.1",
   "minimum_chrome_version": "142",
-  "description": "Search public comments on the current video or channel.",
+  "description": "Search comments on any YouTube Video, Short or Channel.",
   "icons": {
     "16": "assets/icon-active-16.png",
     "32": "assets/icon-active-32.png",
