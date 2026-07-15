@@ -87,6 +87,9 @@ comment-finder/
 │   ├── wrangler.jsonc
 │   ├── src/index.ts
 │   └── test/
+├── site/
+│   ├── wrangler.jsonc            # Apex + www custom domains on incredible.tools
+│   └── public/                   # Static homepage, privacy, and support pages
 └── package.json
 ```
 
@@ -166,7 +169,23 @@ Cloudflare Workers is a good free MVP host. Its request allowance is above the Y
 
    Although this value is not sensitive, storing it as a Worker secret keeps deployment configuration out of source control. The secret update deploys a new Worker version.
 
-4. Rebuild and package `extension/dist` if the Worker origin changed. The API key must never appear in the generated directory. Inspect the bundle before releasing it.
+4. Deploy the public site on the apex domain (homepage, privacy policy, and support pages for the Chrome Web Store listing):
+
+   ```bash
+   bun run deploy:site
+   ```
+
+   That publishes `site/public` to Worker `incredible-tools-site` on `https://incredible.tools` and `https://www.incredible.tools` via zone routes (the apex already had parking DNS, so Workers `custom_domain` attach fails; zone routes bind the Worker on the existing Cloudflare zone instead). Store listing URLs:
+
+   | Field | URL |
+   | --- | --- |
+   | Homepage | https://incredible.tools/youtube-comment-finder |
+   | Privacy policy | https://incredible.tools/youtube-comment-finder/policy-extension |
+   | Support | https://incredible.tools/youtube-comment-finder/support |
+
+   Keep `site/public/youtube-comment-finder/policy-extension/index.html` aligned with `extension/privacy.html` when the policy text changes.
+
+5. Rebuild and package `extension/dist` if the Worker origin changed. The API key must never appear in the generated directory. Inspect the bundle before releasing it.
 
 The rate-limit binding uses namespace `1001`. Cloudflare requires this to be a positive integer unique to the desired counter namespace in your account; change it if another Worker already uses that namespace. Cloudflare documents that this binding is local to a data center and eventually consistent, so it is an abuse control—not a hard global daily quota cap. For public scale, add real, revocable user authentication and a server-side global budget model.
 
@@ -198,7 +217,7 @@ The test suite covers URL parsing, XSS-safe comment data mapping, privacy/manife
 
 - [ ] Use one GCP project only for this extension, with YouTube Data API v3 enabled.
 - [ ] Keep `YOUTUBE_API_KEY` only in the Worker secret store; restrict it to the YouTube Data API.
-- [ ] Publish `extension/privacy.html` at https://incredible.tools/youtube-comment-finder/policy-extension (contact: contact@incredible.tools) before public use.
+- [x] Publish `extension/privacy.html` at https://incredible.tools/youtube-comment-finder/policy-extension (contact: contact@incredible.tools) before public use. Deploy with `bun run deploy:site`; keep the site copy in sync with `extension/privacy.html`.
 - [ ] Keep the privacy-consent gate, YouTube Terms link, and Google Privacy Policy link accessible.
 - [ ] Do not add page injection, DOM scraping, Innertube calls, or a broad host permission.
 - [ ] Do not keep a permanent offline comment cache. Session restore may hold recent per-video, per-channel, and per-handle results in `chrome.storage.session` until the browser closes; the Worker must not cache comment data.

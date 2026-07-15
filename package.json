@@ -9,6 +9,8 @@
     "build:extension": "bun extension/scripts/build.mjs",
     "dev:proxy": "WRANGLER_LOG_PATH=.wrangler/logs sh -c 'cd proxy && bunx wrangler dev --env-file .dev.vars'",
     "deploy:proxy": "WRANGLER_LOG_PATH=.wrangler/logs bunx wrangler deploy --config proxy/wrangler.jsonc",
+    "deploy:site": "WRANGLER_LOG_PATH=.wrangler/logs bunx wrangler deploy --config site/wrangler.jsonc",
+    "check:site": "WRANGLER_LOG_PATH=.wrangler/logs bunx wrangler deploy --dry-run --config site/wrangler.jsonc",
     "test": "bun test",
     "check:proxy": "WRANGLER_LOG_PATH=.wrangler/logs bunx wrangler deploy --dry-run --config proxy/wrangler.jsonc"
   },

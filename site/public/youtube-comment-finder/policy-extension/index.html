@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comment Finder Privacy Policy — incredible.tools</title>
+    <meta
+      name="description"
+      content="Privacy policy for the Comment Finder Chrome extension."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="wrap doc">
+      <nav class="site-nav" aria-label="Site">
+        <a class="mark" href="/">incredible.tools</a>
+        <a href="/youtube-comment-finder/">Comment Finder</a>
+      </nav>
+
+      <h1>Comment Finder Privacy Policy</h1>
+      <p class="meta">Effective date: July 15, 2026</p>
+      <p>
+        This policy is published at
+        <a href="https://incredible.tools/youtube-comment-finder/policy-extension"
+          >incredible.tools/youtube-comment-finder/policy-extension</a
+        >.
+      </p>
+
+      <h2>What Comment Finder does</h2>
+      <p>
+        Comment Finder is a browser extension that searches public comments for
+        the video or channel currently open in a YouTube tab. It uses YouTube API
+        Services and does not scrape YouTube pages or access a YouTube account.
+      </p>
+
+      <h2>Information processed</h2>
+      <p>
+        Comment Finder reads the URL of the active tab when you open its popup or
+        side panel, and while the side panel stays open it may re-read the active
+        tab when you switch tabs or navigate on YouTube, so the panel can show
+        the correct video or channel. URL access is limited to YouTube pages the
+        extension is allowed to see (and the tab you invoke the extension on).
+        The toolbar icon (active on supported YouTube watch, Shorts, channel, and
+        handle pages, inactive elsewhere) is swapped by the browser from a
+        declarative URL match, so the extension does not read tab URLs to change
+        its icon. The URL stays on your device and is not sent to the proxy
+        except as the video ID, channel ID, or handle needed for a search you
+        submit.
+      </p>
+      <p>
+        When you submit a search, the extension sends the current video ID or
+        channel ID (resolved from a channel URL or @handle when needed) and your
+        keyword to the extension operator's proxy. The proxy sends those values
+        to the YouTube Data API to retrieve matching public comments and video or
+        channel metadata. For channel searches, the proxy may also request titles
+        for the videos that contain matching comments. The proxy receives an IP
+        address from Cloudflare for short-window rate limiting, but does not
+        persist the IP address, keyword, video ID, channel ID, handle, comment
+        text, or author identity in its application telemetry.
+      </p>
+      <p>
+        Search results stay on your device for the current browser session so the
+        popup or side panel can restore them when reopened on the same video or
+        channel. Comment Finder does not maintain a permanent offline comment
+        cache, profile users, use advertising technology, or sell or share this
+        information for advertising. Aggregate proxy telemetry records only the
+        endpoint called and its response status so the operator can monitor API
+        quota use.
+      </p>
+
+      <h2>Device storage</h2>
+      <p>
+        The extension stores the version of this Privacy Policy you accepted in
+        Chrome local storage. It also keeps recent per-video, per-channel, and
+        per-handle popup state (keyword, metadata, matching comments,
+        source-video titles for channel results, and pagination position) in
+        Chrome session storage for the current browser session. Session data is
+        cleared when the browser closes. Removing the extension clears both
+        values.
+      </p>
+
+      <h2>Service providers and sharing</h2>
+      <p>
+        Requests are processed by Cloudflare Workers and the YouTube Data API.
+        Those services may process request data under their own terms and privacy
+        policies. Comment Finder does not intentionally disclose search data to
+        other parties.
+      </p>
+
+      <h2>Your choices</h2>
+      <p>
+        You can stop all further processing by not submitting a search or by
+        removing the extension. Closing the browser clears session search state.
+        Because Comment Finder does not create accounts or keep a remote search
+        history, there is no remote profile to delete. For questions about this
+        policy, contact:
+        <a href="mailto:contact@incredible.tools">contact@incredible.tools</a>.
+      </p>
+
+      <h2>Terms and external policies</h2>
+      <p>
+        By using Comment Finder, you agree to the
+        <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer"
+          >YouTube Terms of Service</a
+        >. Comment Finder's use of information received from YouTube API Services
+        adheres to the
+        <a
+          href="https://developers.google.com/youtube/terms/api-services-terms-of-service"
+          target="_blank"
+          rel="noreferrer"
+          >YouTube API Services Terms of Service</a
+        >
+        and the
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer"
+          >Google Privacy Policy</a
+        >.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If this policy changes, Comment Finder will require acceptance of the new
+        policy version before its search feature is available again.
+      </p>
+
+      <nav class="footer-nav" aria-label="Footer">
+        <a href="/youtube-comment-finder/">Comment Finder</a>
+        <a href="/youtube-comment-finder/support/">Support</a>
+        <a href="/">incredible.tools</a>
+      </nav>
+    </main>
+  </body>
+</html>
