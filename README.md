@@ -27,14 +27,14 @@ Search comments on YouTube videos, Shorts and across channels.
 
 ## Features
 
-- Search in comments and replies on currently open YouTube video, Shorts or channel page.
-- Can be used from the toolbar popup or the side panel.
+- Search in comments and replies on currently open YouTube video, Shorts or channel page
+- Can be used from the toolbar popup or the side panel
 - 100 results per search + infinite scroll pagination
-- Toolbar icon changes color dynamically and shows whether the current page is searchable (red) or not (gray).
-- UI automatically updates on tab changes and YouTube navigation, and restore previous search state when closed and reopened.
-- Clickable comment links and timestamps.
-- Uses the official YouTube Data API v3 to search comments, no page scraping or injection.
-- Minimal permissions.
+- Clickable comment links and timestamps
+- Toolbar icon changes color dynamically and shows whether the current page is searchable (red) or not (gray)
+- UI automatically updates on tab changes and YouTube navigation, and restores previous search state on popup/side panel reopen
+- Uses the official YouTube Data API v3 to search comments, no page scraping or injection
+- Minimal permissions
 
 ## Installing from source
 
