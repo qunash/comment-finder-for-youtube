@@ -1,25 +1,29 @@
-<div class="flex items-center">
-  <img src="extension/assets/icon-active-128.png" alt="Comment Finder" width="32" height="32" valign="middle" />
-  &nbsp;
-  <h1>Comment Finder</h1>
-</div>
+<h1 align="center">
+  <sub><img src="extension/assets/icon-active-128.png" alt="Comment Finder" width="32" height="32"></sub>
+  &nbsp;Comment Finder for YouTube
+</h1>
 
 
-<p align="center">`Search comments on YouTube` videos, Shorts and across channels.</p>
-</br>
 
----
+<h3 align="center" style="margin: 0; margin-top: 0;">
+Search comments on YouTube videos, Shorts and across channels.
+</h3>
 
+<br>
 <p align="center">
   <a href="https://chromewebstore.google.com/detail/comment-finder-for-youtub/ecidemeccmgcmgaadfdaoajoalnbpgkl">
     <img src="promo_assets/get-it-on-chrome.png" height="67" alt="Get it on Chrome" valign="middle">
   </a>
 </p>
 
-<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
+<br>
+
+<div align="center" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
   <img src="promo_assets/popup.png" alt="Popup showing comment search results with light and dark themes" height="320" />&nbsp;&nbsp;&nbsp;
   <img src="promo_assets/searching-on-shorts.png" alt="Side panel searching comments on a YouTube Short" height="320" />
 </div>
+
+<br>
 
 ## Features
 
@@ -51,13 +55,5 @@ cp proxy/.dev.vars.example proxy/.dev.vars
 bun run dev:proxy
 ```
 
----
-
-<div class="flex items-end">
-  <a href="https://x.com/hahahahohohe">
-    <img src="https://shieldcn.dev/badge/Follow%20me-000?logo=x&logoColor=white" alt="Follow me on X" height="32" valign="middle">
-  </a>
-  <a href="https://buymeacoffee.com/anzorq">
-    <img src="https://shieldcn.dev/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" height="30" valign="middle">
-  </a>
-</div>
+<h1></h1>
+<a href="https://x.com/hahahahohohe"><img src="https://shieldcn.dev/badge/Follow%20me-000?logo=x&logoColor=white" alt="Follow me on X" height="32" valign="middle"></a><a href="https://buymeacoffee.com/anzorq"><img src="https://shieldcn.dev/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" height="30" valign="middle"></a>
